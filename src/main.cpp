@@ -20,15 +20,25 @@ int main(int, char**) {
 
 	double dt = 0;
 
-	mat<5> mat5;
+	mat<2, 3> mat1 = {
+		{1, 2, 3},
+		{4, 5, 6},
+	};
 
-	for (int y = 0; y < 5; y++) {
-		for (int x = 0; x < 5; x++) {
-			std::cout << mat5[x][y] << ", ";
+	mat<3, 2> mat2 = {
+		{7, 8},
+		{9, 10},
+		{11, 12}
+	};
+
+	auto mat3 = mat1 * mat2;
+
+	for (int y = 0; y < mat3.height; y++) {
+		for (int x = 0; x < mat3.width; x++) {
+			std::cout << mat3[y][x] << ", ";
 		}
 		std::cout << std::endl;
 	}
-	
 
 	//world mWorld(cartesian_to_graphic, meters_to_pixels);
 
