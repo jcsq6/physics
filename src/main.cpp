@@ -4,7 +4,6 @@
 
 int main(int, char**) {
 	SDL_Init(SDL_INIT_EVERYTHING);
-	std::cout << "6:main.cpp\n";
 
 	SDL_Window* window = SDL_CreateWindow("template", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 960, 540, SDL_WINDOW_RESIZABLE);
 	SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, 0);
