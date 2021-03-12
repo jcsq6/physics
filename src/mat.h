@@ -3,9 +3,10 @@
 #include <vector>
 #include <stdexcept>
 #include <initializer_list>
+#include <type_traits>
 
-template <class T> inline T dot(std::vector<T> v1, std::vector<T> v2) {
-	static_assert(v1.size() == v2.size(), "vec dimensions must be equal");
+template <class T> inline T dot(const std::vector<T> &v1, const std::vector<T> &v2) {
+	if (v1.size() != v2.size()) throw std::logic_error{"vec dimensions must be equal" };
 	T result = 0;
 	for (int i = 0; i < v1.size(); i++) {
 		result += v1[i] * v2[i];
@@ -13,11 +14,25 @@ template <class T> inline T dot(std::vector<T> v1, std::vector<T> v2) {
 	return result;
 }
 
+namespace mat_helper {
+	template<typename T, typename = void>
+	struct row;
+
+	template<int w1, int... ws>
+	struct row<std::integer_sequence<int, w1, ws...>, std::enable_if_t<((w1 == ws) && ...)>> {
+		static constexpr int w = w1;
+		static constexpr int h = sizeof...(ws) + 1;
+	};
+	template<int... ws>
+		inline constexpr int row_w = row<std::integer_sequence<int, ws...>>::w;
+
+	template<int... ws>
+	inline constexpr int row_h = row<std::integer_sequence<int, ws...>>::h;
+};
+
 template<int h, int w = h>
 class mat {
 public:
-	const int width = w;
-	const int height = h;
 	mat() : values(h, std::vector<double>(w)) {
 		if (w == h) {
 			int x = 0;
@@ -27,8 +42,9 @@ public:
 			}
 		}
 	}
-	mat(std::initializer_list<std::vector<double>> matvals){
-		values = matvals;
+	template<int... ws, typename = std::enable_if<h + 1 == mat_helper::row_h<w, ws...>>>
+	mat(double (&&... head)[ws]){
+
 	}
 	mat(int val) : values(h, std::vector<double>(w, val)) {}
 	mat(const mat& m) {
@@ -37,22 +53,28 @@ public:
 	mat(mat&& m) {
 		values = std::move(m.values);
 	}
-	template<int mw, int mh = mw>
-	auto operator*(const mat<mw, mh>& m) -> mat<w, mh> {
+	int width() {
+		return w;
+	}
+	int height() {
+		return h;
+	}
+	template<int mh, int mw = mh>
+	auto operator*(const mat<mh, mw>& m) -> mat<h, mw> const {
 		if (w != mh) throw std::logic_error{ "Matrices cannot be multiplied" };
-		mat<w, mh> temp;
+		mat<h, mw> temp;
 		std::vector<double> mcol(mh);
 		for (int y = 0; y < mw; y++) {
-			for (int my = 0; my < mh; my++) {
-				mcol[my] = m.values[my];
-			}
 			for (int mx = 0; mx < mw; mx++) {
-				temp.values[y % h][mx] = dot(values[y][mx], mcol);
+				for (int my = 0; my < mh; my++) {
+					mcol[my] = m.values[my][mx];
+				}
+				temp.values[y % h][mx] = dot(values[y % h], mcol);
 			}
 		}
 		return temp;
 	}
-	mat operator+(const mat& m) {
+	mat operator+(const mat& m) const {
 		mat temp;
 		for (int y = 0; y < h; y++) {
 			for (int x = 0; x < w; x++) {
@@ -70,7 +92,14 @@ public:
 	}
 	mat& operator=(mat&& m) {
 		values = std::move(m.values);
+		return *this;
 	}
 private:
 	std::vector<std::vector<double>> values;
+
+	template<int mw, int mh>
+	friend class mat;
 };
+
+template<int... ws>
+mat(double (&&... head)[ws]) -> mat<mat_helper::row_h<ws...>, mat_helper::row_w<ws...>>;
