@@ -15,11 +15,16 @@ template <class T> inline T dot(const std::vector<T> &v1, const std::vector<T> &
 }
 
 namespace mat_helper {
+	template<int i1, int i2>
+	struct is_equal {
+		static constexpr bool value = i1 == i2;
+	};
+
 	template<typename T, typename = void>
 	struct row;
 
 	template<int w1, int... ws>
-	struct row<std::integer_sequence<int, w1, ws...>, std::enable_if_t<((w1 == ws) && ...)>> {
+	struct row<std::integer_sequence<int, w1, ws...>, std::enable_if_t<std::conjunction_v<is_equal<w1, ws>...>>> {
 		static constexpr int w = w1;
 		static constexpr int h = sizeof...(ws) + 1;
 	};
@@ -44,7 +49,7 @@ public:
 	}
 	template<int... ws, typename = std::enable_if<h + 1 == mat_helper::row_h<w, ws...>>>
 	mat(double (&&... head)[ws]){
-
+		get_values(head...);
 	}
 	mat(int val) : values(h, std::vector<double>(w, val)) {}
 	mat(const mat& m) {
@@ -96,6 +101,17 @@ public:
 	}
 private:
 	std::vector<std::vector<double>> values;
+
+	template<typename T>
+	void get_values(T last) {
+		values.push_back(std::vector<double>(last, last + w));
+	}
+
+    template<typename T, typename... Ts>
+	void get_values(T head, Ts... tail){
+		values.push_back(std::vector<double>(head, head + w));
+        get_values(tail...);
+    }
 
 	template<int mw, int mh>
 	friend class mat;
