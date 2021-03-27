@@ -1,8 +1,8 @@
 #include "object.h"
 
 object::object(double mass, double restitution, poly boundingBox) :
-	bounds{ boundingBox }, vel{ vec2<double>(0,0) }, accel{ vec2<double>(0,0) },
-	netForce{ vec2<double>(0, 0) }, netForceBack{ vec2<double>(0, 0) }{
+	bounds{ boundingBox }, vel{ vec2(0,0) }, accel{ vec2(0,0) },
+	netForce{ vec2(0, 0) }, netForceBack{ vec2(0, 0) }{
 	cor = restitution;
 	m_recip = 1 / mass;
 }
@@ -38,28 +38,28 @@ void object::update(double dt) {
 	netForce.x = 0;
 	netForce.y = 0;
 }
-void object::addVelocity(vec2<double> velocity) {
+void object::addVelocity(vec2 velocity) {
 	vel += velocity;
 }
-void object::setVelocity(vec2<double> velocity) {
+void object::setVelocity(vec2 velocity) {
 	vel = velocity;
 }
-void object::addImpulse(vec2<double> force, double duration) {
+void object::addImpulse(vec2 force, double duration) {
 	impulses.push_back(std::make_pair(force, duration));
 }
-void object::addForce(vec2<double> force) {
+void object::addForce(vec2 force) {
 	netForce += force;
 }
-void object::setForce(vec2<double> force) {
+void object::setForce(vec2 force) {
 	netForce = force;
 }
-void object::addConstAccel(vec2<double> accel, std::string name) {
+void object::addConstAccel(vec2 accel, std::string name) {
 	constAcceleration[name] = accel;
 }
 void object::removeConstAcceleration(std::string name) {
 	constAcceleration.erase(name);
 }
-vec2<double> object::getConstAcceleration(std::string name) {
+vec2 object::getConstAcceleration(std::string name) {
 	return constAcceleration[name];
 }
 bool object::hasConstAcceleration(std::string name) const {
@@ -68,16 +68,16 @@ bool object::hasConstAcceleration(std::string name) const {
 int object::numOfConstAccelerations() const {
 	return constAcceleration.size();
 }
-vec2<double> object::getUpcomingNetForce() const {
+vec2 object::getUpcomingNetForce() const {
 	return netForce;
 }
-vec2<double> object::getPastNetForce() const {
+vec2 object::getPastNetForce() const {
 	return netForceBack;
 }
-vec2<double> object::getVel() const {
+vec2 object::getVel() const {
 	return vel;
 }
-vec2<double> object::getAccel() const {
+vec2 object::getAccel() const {
 	return accel;
 }
 double object::getMassRecip() const {

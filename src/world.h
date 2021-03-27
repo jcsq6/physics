@@ -5,11 +5,12 @@ class world {
 public:
 	world(double width, double height, double px_per_meter);
 
-	void addObj(object obj);
+	void addObj(const object& obj);
 
 	void update(double dt);
 
 	void draw(SDL_Renderer *renderer);
 private:
-	std::vector<object> objects;
+	a_vector<object> objects;
+	mat<double> scaler;
 };

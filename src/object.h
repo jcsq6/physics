@@ -11,21 +11,21 @@ public:
 
 	void update(double dt);
 
-	void addVelocity(vec2<double> velocity);
-	void setVelocity(vec2<double> velocity);
-	void addImpulse(vec2<double> force, double duration);
-	void addForce(vec2<double> force);
-	void setForce(vec2<double> force);
-	void addConstAccel(vec2<double> accel, std::string name);
+	void addVelocity(vec2 velocity);
+	void setVelocity(vec2 velocity);
+	void addImpulse(vec2 force, double duration);
+	void addForce(vec2 force);
+	void setForce(vec2 force);
+	void addConstAccel(vec2 accel, std::string name);
 	void removeConstAcceleration(std::string name);
 
-	vec2<double> getConstAcceleration(std::string name);
+	vec2 getConstAcceleration(std::string name);
 	bool hasConstAcceleration(std::string name) const;
 	int numOfConstAccelerations() const;
-	vec2<double> getUpcomingNetForce() const;
-	vec2<double> getPastNetForce() const;
-	vec2<double> getVel() const;
-	vec2<double> getAccel() const;
+	vec2 getUpcomingNetForce() const;
+	vec2 getPastNetForce() const;
+	vec2 getVel() const;
+	vec2 getAccel() const;
 	double getMassRecip() const;
 	double getMass() const;
 	double getRestitution();
@@ -37,10 +37,10 @@ public:
 private:
 	double m_recip;
 	double cor;
-	vec2<double> vel;
-	vec2<double> accel;
-	vec2<double> netForce;
-	vec2<double> netForceBack;
-	std::map<std::string, vec2<double>> constAcceleration;
-	std::vector<std::pair<vec2<double>, double>> impulses;
+	vec2 vel;
+	vec2 accel;
+	vec2 netForce;
+	vec2 netForceBack;
+	std::map<std::string, vec2> constAcceleration;
+	std::vector<std::pair<vec2, double>> impulses;
 };

@@ -1,4 +1,3 @@
-#include "mat.h"
 #include "world.h"
 #include <iostream>
 
@@ -8,8 +7,11 @@ int main(int, char**) {
 	SDL_Window* window = SDL_CreateWindow("template", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 960, 540, SDL_WINDOW_RESIZABLE);
 	SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, 0);
 
-	const unsigned int px_count_horiz = 1920;
-	const unsigned int px_count_vert = 1080;
+	const int px_count_horiz = 1920;
+	const int px_count_vert = 1080;
+
+	const int mtr_count_horiz = 96;
+	const int mtr_count_vert = 54;
 
 	SDL_RenderSetLogicalSize(renderer, px_count_horiz, px_count_vert);
 
@@ -20,30 +22,11 @@ int main(int, char**) {
 
 	double dt = 0;
 
-	mat mat1 = {
-		{1, 2, 3, 4},
-		{5, 6, 7, 8},
-	};
+	//mat<double> meters_to_pixels = scale(px_count_horiz / mtr_count_horiz, px_count_vert / mtr_count_vert);
 
-	mat mat2 = {
-		{1, 2, 3},
-		{4, 5, 6},
-		{7, 8, 9},
-		{10, 11, 12}
-	};
+	//world mWorld(1920, 1080, px_count_horiz / mtr_count_horiz);
 
-	auto mat3 = mat1 * mat2;
-
-	for (int y = 0; y < mat3.height(); y++) {
-		for (int x = 0; x < mat3.width(); x++) {
-			std::cout << mat3[y][x] << ", ";
-		}
-		std::cout << std::endl;
-	}
-
-	//world mWorld(cartesian_to_graphic, meters_to_pixels);
-
-	//object pentagon(20, .1, poly::make_reg_poly({ meter_count_horiz / 2, 27 - 3 }, 2.5, 10, FULL));
+	//object pentagon(20, .1, poly::make_reg_poly({ mtr_count_horiz / 2, mtr_count_vert / 2 - 3 }, 2.5, 10, FULL));
 	//object rect(20, .2, poly::make_rect({ 1, 1 }, 1, 1, FULL));
 
 	//pentagon.addConstAccel({ 0, -10 }, "gravity");
@@ -54,8 +37,8 @@ int main(int, char**) {
 	//mWorld.addObj(pentagon);
 	//mWorld.addObj(rect);
 
-	poly hexagon = poly::make_reg_poly({ 24, 1 }, 1, 6, COLLISION_REQS | DRAW_REQS);
-	poly rect = poly::make_rect({ 24 - 2, 13.5 - 2 }, 4, 4, COLLISION_REQS | DRAW_REQS);
+	poly hexagon = poly::make_reg_poly({ mtr_count_horiz - 50, mtr_count_vert - 50 }, 50, 6, COLLISION_REQS | DRAW_REQS);
+	poly rect = poly::make_rect({ px_count_horiz / 2 - 20, px_count_vert / 2 - 20 }, 40, 40, COLLISION_REQS | DRAW_REQS);
 
 	while (running) {
 		last = now;
@@ -79,6 +62,9 @@ int main(int, char**) {
 					break;
 				}
 				break;
+			case SDL_MOUSEMOTION:
+				hexagon.update_pos({ (double)event.motion.x, (double)event.motion.y }, hexagon.center());
+				break;
 			}
 		}
 
@@ -87,6 +73,17 @@ int main(int, char**) {
 
 		SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255);
 		//mWorld.draw(renderer);
+		collision n = poly::is_colliding(rect, hexagon);
+		if (!n) {
+			SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255);
+		}
+		else {
+			SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
+			rect += n.min_translation_vec<0>();
+		}
+		
+		poly::draw_poly(renderer, rect);
+		poly::draw_poly(renderer, hexagon);
 
 		SDL_RenderPresent(renderer);
 	}
