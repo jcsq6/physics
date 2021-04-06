@@ -38,6 +38,12 @@ public:
 
 	void rotate(double radians, const vec2 &center);
 
+	void set_rotation(double radians);
+
+	void set_init_rotation(double current_pos_rot);
+
+	double rotation();
+
 	void sort_pts();
 
 	vec2 center();
@@ -115,8 +121,11 @@ public:
 private:
 	vec2 c;
 	a_vector<vec2> pts;
+	vec2 init_p0_rel;
+	double init_p0_rel_a;
 	size_t pt_count;
 	double a;
+	double rot;
 	int flags;
 
 	void get_hull(const std::vector<vec2> &set, const vec2 &b1, const vec2 &b2);
@@ -150,7 +159,11 @@ template<class O> poly poly::convert(O predicate, int succeding_checks) const {
 
 		if (succeding_checks & SORT_PTS) p.sort();
 
-		if (succeding_checks & GET_CENTER) p.get_center();
+		if (succeding_checks & GET_CENTER) {
+			p.get_center();
+			p.init_p0_rel = p.pts[0] - p.c;
+			p.init_p0_rel_a = p.init_p0_rel.angle();
+		}
 	}
 	else p.flags = flags;
 	return p;

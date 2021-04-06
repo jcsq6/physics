@@ -16,17 +16,24 @@ inline int modulus(int a, int b) {
 poly::poly() {
 	c.x = 0;
 	c.y = 0;
+	rot = 0;
 	flags = NONE;
 }
 
 poly::poly(const poly& p) noexcept : pts{ p.pts } {
 	c = p.c;
+	rot = p.rot;
+	init_p0_rel = p.init_p0_rel;
+	init_p0_rel_a = p.init_p0_rel_a;
 	pt_count = p.pt_count;
 	flags = p.flags;
 }
 
 poly::poly(poly&& p) noexcept : pts{ std::move(p.pts) } {
 	c = p.c;
+	rot = p.rot;
+	init_p0_rel = p.init_p0_rel;
+	init_p0_rel_a = p.init_p0_rel_a;
 	pt_count = p.pt_count;
 	flags = p.flags;
 }
@@ -37,6 +44,11 @@ poly::poly(std::initializer_list<vec2> ptl) {
 
 	sort();
 	get_center();
+
+	init_p0_rel = pts[0] - c;
+	init_p0_rel_a = init_p0_rel.angle();
+
+	rot = 0;
 
 	flags = FULL;
 }
@@ -51,9 +63,14 @@ poly::poly(const a_vector<vec2>& ptl, int checks_and_reqs) {
 
 	if (checks_and_reqs & SORT_PTS) sort();
 
-	if (checks_and_reqs & GET_CENTER) get_center();
-
+	if (checks_and_reqs & GET_CENTER) {
+		get_center();
+		init_p0_rel = pts[0] - c;
+		init_p0_rel_a = init_p0_rel.angle();
+	}
 	if (checks_and_reqs & GET_AREA) get_area();
+
+	rot = 0;
 }
 
 template<typename... T>
@@ -67,9 +84,15 @@ poly::poly(int checks_and_reqs, T... ptl){
 
 	if (checks_and_reqs & SORT_PTS) sort();
 
-	if (checks_and_reqs & GET_CENTER) get_center();
+	if (checks_and_reqs & GET_CENTER) {
+		get_center();
+		init_p0_rel = pts[0] - c;
+		init_p0_rel_a = init_p0_rel.angle();
+	}
 
 	if (checks_and_reqs & GET_AREA) get_area();
+
+	rot = 0;
 }
 
 a_vector<vec2>::const_iterator poly::begin() const {
@@ -105,6 +128,22 @@ void poly::rotate(double radians, const vec2 &center) {
 	}
 
 	c.rotate(radians, center);
+
+	rot = (pts[0] - this->center()).angle() - init_p0_rel_a;
+}
+
+void poly::set_rotation(double radians){
+	this->rotate(radians - rot, this->center());
+	rot = radians;
+}
+
+void poly::set_init_rotation(double current_pos_rot) {
+	init_p0_rel = pts[0] - this->center();
+	init_p0_rel_a = init_p0_rel.angle();
+}
+
+double poly::rotation(){
+	return rot;
 }
 
 void poly::sort_pts(){
@@ -114,6 +153,8 @@ void poly::sort_pts(){
 vec2 poly::center() {
 	if (!(flags & GET_CENTER)) {
 		get_center();
+		init_p0_rel = pts[0] - c;
+		init_p0_rel_a = init_p0_rel.angle();
 		flags |= GET_CENTER;
 	}
 	return c;
@@ -212,6 +253,8 @@ bool poly::operator!=(const poly &q) const {
 poly& poly::operator=(const poly& p) noexcept {
 	c = p.c;
 	pts = p.pts;
+	rot = p.rot;
+	init_p0_rel = p.init_p0_rel;
 	pt_count = p.pt_count;
 	flags = p.flags;
 	return *this;
@@ -220,6 +263,8 @@ poly& poly::operator=(const poly& p) noexcept {
 poly& poly::operator=(poly &&p) noexcept {
 	c = p.c;
 	pts = std::move(p.pts);
+	rot = p.rot;
+	init_p0_rel = p.init_p0_rel;
 	pt_count = p.pt_count;
 	flags = p.flags;
 	return *this;
@@ -232,7 +277,7 @@ poly poly::make_rect(const vec2 &topLeft, double width, double height, int flags
 //no matter the flags, a GET_CENTER is always performed
 poly poly::make_reg_poly(const vec2 &center, double radius, int num_of_sides, int checks_and_reqs) {
 	a_vector<vec2> pts;
-	pts.reserve(num_of_sides);
+	pts.reserve(num_of_sides * 2);
 	for (int n = 1; n <= num_of_sides; n++) {
 		pts.push_back({ radius * cos(n * 2 * M_PI / num_of_sides), radius * sin(n * 2 * M_PI / num_of_sides) });
 	}

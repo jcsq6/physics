@@ -37,8 +37,10 @@ int main(int, char**) {
 	//mWorld.addObj(pentagon);
 	//mWorld.addObj(rect);
 
-	poly hexagon = poly::make_reg_poly({ mtr_count_horiz - 50, mtr_count_vert - 50 }, 50, 6, COLLISION_REQS | DRAW_REQS);
+	poly hexagon = poly::make_reg_poly({ px_count_horiz / 2 - 300, px_count_vert / 2 - 300 }, 50, 6, COLLISION_REQS | DRAW_REQS);
+	poly triangle = poly::make_reg_poly({ 0, 0 }, 30, 3, COLLISION_REQS | DRAW_REQS);
 	poly rect = poly::make_rect({ px_count_horiz / 2 - 20, px_count_vert / 2 - 20 }, 40, 40, COLLISION_REQS | DRAW_REQS);
+	poly circle = poly::make_reg_poly({ px_count_horiz / 2 - 500, 200 }, 50, 25, COLLISION_REQS | DRAW_REQS);
 
 	while (running) {
 		last = now;
@@ -63,7 +65,8 @@ int main(int, char**) {
 				}
 				break;
 			case SDL_MOUSEMOTION:
-				hexagon.update_pos({ (double)event.motion.x, (double)event.motion.y }, hexagon.center());
+				//triangle.set_rotation(vec2(event.motion.xrel, event.motion.yrel).angle());
+				triangle.update_pos({(double)event.motion.x, (double)event.motion.y}, *triangle.begin());
 				break;
 			}
 		}
@@ -73,30 +76,34 @@ int main(int, char**) {
 
 		SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255);
 		//mWorld.draw(renderer);
-		collision n = poly::is_colliding(rect, hexagon);
-		if (!n) {
-			SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255);
+		if (auto t_h = poly::is_colliding(triangle, hexagon)) hexagon += t_h.min_translation_vec(1);
+		if (auto t_r = poly::is_colliding(triangle, rect)) rect += t_r.min_translation_vec(1);
+		if (auto t_c = poly::is_colliding(triangle, circle)) circle += t_c.min_translation_vec(1);
+
+		if (auto r_h = poly::is_colliding(rect, hexagon)) {
+			rect += r_h.min_translation_vec(0);
+			hexagon += r_h.min_translation_vec(1);
 		}
-		else {
-			SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
-			//rect += n.min_translation_vec(0);
+		if (auto r_c = poly::is_colliding(rect, circle)) {
+			rect += r_c.min_translation_vec(0);
+			circle += r_c.min_translation_vec(1);
+		}
+		if (auto h_c = poly::is_colliding(hexagon, circle)) {
+			hexagon += h_c.min_translation_vec(0);
+			circle += h_c.min_translation_vec(1);
 		}
 
+		SDL_SetRenderDrawColor(renderer, 255, 0, 255, 255);
 		poly::draw_poly(renderer, rect);
+
+		SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
 		poly::draw_poly(renderer, hexagon);
 
-		if (n) {
-			SDL_SetRenderDrawColor(renderer, 255, 255, 0, 255);
-			SDL_RenderDrawLine(renderer, (int)rect.center().x, (int)rect.center().y, (int)rect.center().x + (int)n.normal(0).x, (int)rect.center().y + (int)n.normal(0).y);
+		SDL_SetRenderDrawColor(renderer, 0, 0, 255, 255);
+		poly::draw_poly(renderer, circle);
 
-			SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-
-			draw_pt(renderer, *n.get_collision_edge(0).first, 3);
-			draw_pt(renderer, *n.get_collision_edge(0).second, 3);
-
-			draw_pt(renderer, *n.get_collision_edge(1).first, 3);
-			draw_pt(renderer, *n.get_collision_edge(1).second, 3);
-		}
+		SDL_SetRenderDrawColor(renderer, 255, 255, 0, 255);
+		poly::draw_poly(renderer, triangle);
 
 		SDL_RenderPresent(renderer);
 	}

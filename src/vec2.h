@@ -74,3 +74,6 @@ inline double distanceSquared(const vec2& a, const vec2& b) {
 inline bool isInRadius(const vec2& p1, const vec2& p2, double r) {
 	return distanceSquared(p1, p2) <= r * r;
 }
+inline double angle(const vec2& v1, const vec2& v2) {
+	return acos(dot(v1, v2) / (v1.magnitude() * v2.magnitude()));
+}

@@ -8,7 +8,7 @@ target_compile_definitions(physics PRIVATE "$<$<CONFIG:Debug>:" "_DEBUG" ">" "$<
 
 target_compile_options(physics PRIVATE /std:c++latest; /Oi; /Gy; /permissive-; /sdl; /W2; /doc; $<$<CONFIG:Debug>:/Z7>; ${DEFAULT_CXX_DEBUG_INFORMATION_FORMAT}; ${DEFAULT_CXX_EXCEPTION_HANDLING})
 
-target_link_options(physics PRIVATE $<$<CONFIG:Debug>: /INCREMENTAL; /NODEFAULTLIB:LIBCMTD; /NODEFAULTLIB:MSVCRT /SUBSYSTEM:CONSOLE> $<$<CONFIG:Release>: /DEBUG:FULL /OPT:REF; /OPT:ICF; /INCREMENTAL:NO> /NODEFAULTLIB:LIBCMT)
+target_link_options(physics PRIVATE $<$<CONFIG:Debug>: /INCREMENTAL; /NODEFAULTLIB:LIBCMTD; /NODEFAULTLIB:MSVCRT /SUBSYSTEM:WINDOWS> $<$<CONFIG:Release>: /DEBUG:FULL /OPT:REF; /OPT:ICF; /INCREMENTAL:NO> /NODEFAULTLIB:LIBCMT)
 
 target_link_libraries(physics PRIVATE SDL2main SDL2 winmm version Imm32 Setupapi)
 
