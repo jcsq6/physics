@@ -43,20 +43,33 @@ poly::poly(std::initializer_list<vec2> ptl) {
 
 poly::poly(const a_vector<vec2>& ptl, int checks_and_reqs) {
 	flags = checks_and_reqs;
-	if (!(checks_and_reqs & IS_GUARANTEED)) {
-		if (checks_and_reqs & CHECK_HULL) get_convex_hull(ptl);
-		else pts = ptl;
 
-		pt_count = pts.size();
+	if (checks_and_reqs & CHECK_HULL) get_convex_hull(ptl);
+	else pts = ptl;
 
-		if (checks_and_reqs & SORT_PTS) sort();
+	pt_count = pts.size();
 
-		if (checks_and_reqs & GET_CENTER)	get_center();
-	}
-	else {
-		pts = ptl;
-		pt_count = pts.size();
-	}
+	if (checks_and_reqs & SORT_PTS) sort();
+
+	if (checks_and_reqs & GET_CENTER) get_center();
+
+	if (checks_and_reqs & GET_AREA) get_area();
+}
+
+template<typename... T>
+poly::poly(int checks_and_reqs, T... ptl){
+	flags = checks_and_reqs;
+
+	if (checks_and_reqs & CHECK_HULL) get_convex_hull({ ptl... });
+	else pts = { ptl... };
+
+	pt_count = pts.size();
+
+	if (checks_and_reqs & SORT_PTS) sort();
+
+	if (checks_and_reqs & GET_CENTER) get_center();
+
+	if (checks_and_reqs & GET_AREA) get_area();
 }
 
 a_vector<vec2>::const_iterator poly::begin() const {
@@ -99,16 +112,27 @@ void poly::sort_pts(){
 }
 
 vec2 poly::center() {
-	if(flags & GET_CENTER) return c;
-	else {
+	if (!(flags & GET_CENTER)) {
 		get_center();
 		flags |= GET_CENTER;
-		return c;
 	}
+	return c;
 }
 
 vec2 poly::center() const {
 	return c;
+}
+
+double poly::area() {
+	if (!(flags & GET_AREA)) {
+		get_area();
+		flags |= GET_AREA;
+	}
+	return a;
+}
+
+double poly::area() const {
+	return a;
 }
 
 size_t poly::size() const {
@@ -120,7 +144,7 @@ int poly::checks() const {
 }
 
 bool poly::has_collision_reqs() const {
-	return ((flags & SORT_PTS && flags & CHECK_HULL) || flags & IS_GUARANTEED) && !(flags & NO_COLLISION);
+	return (flags & COLLISION_REQS || flags & IS_GUARANTEED) && flags & GET_CENTER && !(flags & NO_COLLISION);
 }
 
 bool poly::has_drawing_reqs() const {
@@ -132,11 +156,11 @@ bool poly::has_center() const {
 }
 
 bool poly::has_hull() const {
-	return (flags & CHECK_HULL) || (flags & IS_GUARANTEED);
+	return flags & CHECK_HULL;
 }
 
 bool poly::is_sorted() const {
-	return (flags & SORT_PTS) || (flags & IS_GUARANTEED);
+	return flags & SORT_PTS;
 }
 
 bool poly::is_checked() const {
@@ -229,13 +253,13 @@ poly poly::get_poly_path(const poly &p1, const poly& p2, int flags) {
 
 struct edge_projection {
 	double min, max;
-	a_vector<vec2>::const_iterator p0, p1;
+	a_vector<vec2>::const_iterator min_pt, max_pt;
 };
 
 collision poly::is_colliding(const poly &q0, const poly &q1) {
 	if (!q0.has_collision_reqs() || !q1.has_collision_reqs()) throw std::logic_error{ "Cannot guarentee collision success. Make sure to declare polys with POLY_FLAGS::COLLISION_REQS OR POLY_FLAGS::IS_GUARANTEED" };
 
-	std::vector<vec2> norms;
+	a_vector<vec2> norms;
 	norms.reserve(q0.pt_count + q1.pt_count);
 
 	vec2 edge;
@@ -247,52 +271,82 @@ collision poly::is_colliding(const poly &q0, const poly &q1) {
 	for (int i = 0; i < q0.pt_count; i++) {
 		edge = q0.pts[i] - q0.pts[(i + 1) % q0.pt_count];
 		edge.perpindiculate();
-		if (std::find_if(norms.begin(), norms.end(), isSameDir) == norms.end()) norms.push_back(edge);
+		if (std::find_if(norms.begin(), norms.end(), isSameDir) == norms.end()) {
+			//not neccesary for SAT, but neccessary for collision response
+			edge.normalize();
+			norms.push_back(edge);
+		}
 	}
 
 	for (int i = 0; i < q1.pt_count; i++) {
 		edge = q1.pts[i] - q1.pts[(i + 1) % q1.pt_count];
 		edge.perpindiculate();
-		if (std::find_if(norms.begin(), norms.end(), isSameDir) == norms.end()) norms.push_back(edge);
+		if (std::find_if(norms.begin(), norms.end(), isSameDir) == norms.end()) {
+			edge.normalize();
+			norms.push_back(edge);
+		}
 	}
+
+	vec2 center_average = (q0.center() + q1.center()) / 2;
 
 	double d;
 	double overlap = INFINITY;
+	double o_t;
 	edge_projection q0_proj, q1_proj;
-	for (int i = 0; i < norms.size(); i++) {
+	EDGE min_proj_q0, min_proj_q1;
+	vec2* min_norm = nullptr;
+	for (auto& norm : norms) {
 		q0_proj.max = -INFINITY;
 		q0_proj.min = INFINITY;
 		q1_proj.max = -INFINITY;
 		q1_proj.min = INFINITY;
 		for (auto v = q0.begin(); v != q0.end(); v++) {
-			d = dot(norms[i], *v);
+			d = dot(norm, *v);
 			if (d < q0_proj.min) {
-				q0_proj.p0 = v;
 				q0_proj.min = d;
+				q0_proj.min_pt = v;
 			}
 			if (d > q0_proj.max) {
-				q0_proj.p1 = v;
 				q0_proj.max = d;
+				q0_proj.max_pt = v;
 			}
 		}
 		for (auto v = q1.begin(); v != q1.end(); v++) {
-			d = dot(norms[i], *v);
+			d = dot(norm, *v);
 			if (d < q1_proj.min) {
-				q1_proj.p0 = v;
 				q1_proj.min = d;
+				q1_proj.min_pt = v;
 			}
 			if (d > q1_proj.max) {
-				q1_proj.p1 = v;
 				q1_proj.max = d;
+				q1_proj.max_pt = v;
 			}
 		}
 		if ((q0_proj.min < q1_proj.max && q0_proj.min > q1_proj.min) || (q1_proj.min < q0_proj.max && q1_proj.min > q0_proj.min)) {
-			overlap = std::min(std::min(q0_proj.max, q1_proj.max) - std::max(q0_proj.min, q1_proj.min), overlap);
+			o_t = std::min(q0_proj.max, q1_proj.max) - std::max(q0_proj.min, q1_proj.min);
+			if (o_t < overlap) {
+				overlap = o_t;
+
+				min_proj_q0.first  = q0_proj.min_pt;
+				min_proj_q0.second = q0_proj.max_pt;
+
+				min_proj_q1.first  = q1_proj.min_pt;
+				min_proj_q1.second = q1_proj.max_pt;
+			}
+			else if (o_t == overlap	&& 
+				poly(GET_AREA, *min_proj_q0.first, *min_proj_q0.second, center_average).area() > poly(GET_AREA, *q0_proj.min_pt, *q0_proj.max_pt, center_average).area())
+			{
+				min_proj_q0.first = q0_proj.min_pt;
+				min_proj_q0.second = q0_proj.max_pt;
+
+				min_proj_q1.first = q1_proj.min_pt;
+				min_proj_q1.second = q1_proj.max_pt;
+			}
 			continue;
 		}
 		else return collision(false);
 	}
-	return collision(overlap, &q0, &q1);
+	return collision(&q0, &q1, overlap, min_proj_q0, min_proj_q1);
 }
 
 void poly::draw_poly(SDL_Renderer *renderer, const poly &q) {
@@ -400,4 +454,14 @@ void poly::sort() {
 	centroid /= (int)pt_count;
 	std::sort(pts.begin(), pts.end(), [&centroid](vec2 &pt1, vec2 &pt2)
 	{ return (pt1 - centroid).angle() < (pt2 - centroid).angle(); });
+}
+
+void poly::get_area() {
+	a = 0;
+
+	for (int i = 0; i < pt_count; i++) {
+		a += (pts[modulus(i - 1, pt_count)].x + pts[i].x) * (pts[modulus(i - 1, pt_count)].y - pts[i].y);
+	}
+
+	a = abs(a / 2);
 }

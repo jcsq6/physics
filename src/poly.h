@@ -14,6 +14,9 @@ public:
 
 	poly(const a_vector<vec2> &ptl, int checks_and_reqs);
 
+	template<typename... T>
+	poly(int checks_and_reqs, T... pts);
+
 	a_vector<vec2>::const_iterator begin() const;
 	a_vector<vec2>::const_iterator end() const;
 
@@ -40,6 +43,10 @@ public:
 	vec2 center();
 
 	vec2 center() const;
+
+	double area();
+
+	double area() const;
 
 	/// <summary>
 	/// Gets number of points in polygon
@@ -109,6 +116,7 @@ private:
 	vec2 c;
 	a_vector<vec2> pts;
 	size_t pt_count;
+	double a;
 	int flags;
 
 	void get_hull(const std::vector<vec2> &set, const vec2 &b1, const vec2 &b2);
@@ -116,7 +124,17 @@ private:
 
 	void get_center();
 	void sort();
+
+	void get_area();
 };
+
+inline void draw_pt(SDL_Renderer* renderer, const vec2& pt, int scale = 1) {
+	for (int x = (int)pt.x; x < pt.x + scale; x++) {
+		for (int y = (int)pt.y; y < pt.y + scale; y++) {
+			SDL_RenderDrawPoint(renderer, x, y);
+		}
+	}
+}
 
 template<class O> poly poly::convert(O predicate, int succeding_checks) const {
 	poly p = *this;
@@ -138,6 +156,13 @@ template<class O> poly poly::convert(O predicate, int succeding_checks) const {
 	return p;
 }
 
-inline collision::collision(double overlap, const poly* q0, const poly* q1) : collides{ true }, p0{ q0 }, p1{ q1 } {
-	
+inline collision::collision(const poly* q0, const poly* q1, double overlap, EDGE col_edge_0, EDGE col_edge_1) : 
+	collides{ true }, p0{ q0 }, p1{ q1 }, e0{ col_edge_0 }, e1{ col_edge_1 }
+{
+	n0 = p1->center() - p0->center();
+	n1 = p0->center() - p1->center();
+
+	//it's not backwards, this is neccesary
+	mtv0 = normalize(n1) * overlap;
+	mtv1 = normalize(n0) * overlap;
 }

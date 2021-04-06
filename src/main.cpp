@@ -79,11 +79,24 @@ int main(int, char**) {
 		}
 		else {
 			SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
-			rect += n.min_translation_vec<0>();
+			//rect += n.min_translation_vec(0);
 		}
-		
+
 		poly::draw_poly(renderer, rect);
 		poly::draw_poly(renderer, hexagon);
+
+		if (n) {
+			SDL_SetRenderDrawColor(renderer, 255, 255, 0, 255);
+			SDL_RenderDrawLine(renderer, (int)rect.center().x, (int)rect.center().y, (int)rect.center().x + (int)n.normal(0).x, (int)rect.center().y + (int)n.normal(0).y);
+
+			SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+
+			draw_pt(renderer, *n.get_collision_edge(0).first, 3);
+			draw_pt(renderer, *n.get_collision_edge(0).second, 3);
+
+			draw_pt(renderer, *n.get_collision_edge(1).first, 3);
+			draw_pt(renderer, *n.get_collision_edge(1).second, 3);
+		}
 
 		SDL_RenderPresent(renderer);
 	}
