@@ -5,24 +5,21 @@
 vec2::vec2() {
 	x = 0;
 	y = 0;
-	i = false;
 }
 vec2::vec2(double X, double Y) {
 	x = X;
 	y = Y;
-	i = true;
 }
 vec2::vec2(const vec2& v) {
 	x = v.x;
 	y = v.y;
-	i = v.i;
 }
 void vec2::swap() {
 	std::swap(x, y);
 }
 void vec2::perpindiculate() {
 	std::swap(x, y);
-	y = -y;
+	x = -x;
 }
 void vec2::normalize() {
 	*this /= magnitude();
@@ -42,9 +39,6 @@ double vec2::magnitude() const {
 double vec2::magnitudeSquared() const {
 	return x * x + y * y;
 }
-bool vec2::initialized() const {
-	return i;
-}
 
 vec2 vec2::operator+(const vec2& v) const {
 	return vec2(x + v.x, y + v.y);
@@ -52,56 +46,54 @@ vec2 vec2::operator+(const vec2& v) const {
 vec2 vec2::operator-(const vec2& v) const {
 	return vec2(x - v.x, y - v.y);
 }
-vec2 vec2::operator*(const vec2& v) const {
-	return vec2(x * v.x, y * v.y);
-}
 vec2 vec2::operator*(double v) const {
 	return vec2(x * v, y * v);
 }
 vec2 vec2::operator/(double v) const {
 	return vec2(x / v, y / v);
 }
-vec2 vec2::operator+=(const vec2& v) {
+vec2& vec2::operator+=(const vec2& v) {
 	x += v.x;
 	y += v.y;
 	return *this;
 }
-vec2 vec2::operator-=(const vec2& v) {
+vec2& vec2::operator-=(const vec2& v) {
 	x -= v.x;
 	y -= v.y;
 	return *this;
 }
-vec2 vec2::operator*=(const vec2& v) {
-	x *= v.x;
-	y *= v.y;
-	return *this;
-}
-vec2 vec2::operator*=(double v) {
+vec2& vec2::operator*=(double v) {
 	x *= v;
 	y *= v;
 	return *this;
 }
-vec2 vec2::operator/=(double v) {
+vec2& vec2::operator/=(double v) {
 	x /= v;
 	y /= v;
 	return *this;
 }
 bool vec2::operator==(const vec2& v) const {
-	if (!i) return false;
 	return v.x == x && v.y == y;
 }
 bool vec2::operator!=(const vec2& v) const {
-	if (!i) return false;
 	return v.x != x || v.y != y;
 }
 vec2& vec2::operator=(const vec2& v) {
 	x = v.x;
 	y = v.y;
-	i = v.i;
 	return *this;
+}
+
+vec2 operator-(const vec2& v){
+	return v * -1;
 }
 
 vec2 normalize(vec2 v) {
 	v.normalize();
+	return v;
+}
+
+vec2 perpindiculate(vec2 v) {
+	v.perpindiculate();
 	return v;
 }

@@ -1,115 +1,142 @@
 #include "object.h"
 
-object::object(double mass, double restitution, poly boundingBox) :
-	bounds{ boundingBox }, vel{ vec2(0,0) }, accel{ vec2(0,0) },
-	netForce{ vec2(0, 0) }, netForceBack{ vec2(0, 0) }{
-	cor = restitution;
+object::object(double mass, double cor, const poly& bounds, const vec2& init_vel, int R, int G, int B, int A) :
+	bounds{ bounds },
+	vel{ init_vel }
+{
+	restitution = cor;
 	m_recip = 1 / mass;
+	angular_vel = 0;
+	r = R;
+	g = G;
+	b = B;
+	a = A;
 }
-object::object(const object& o) noexcept : impulses{ o.impulses }, constAcceleration{ o.constAcceleration }, bounds{ o.bounds }{
-	cor = o.cor;
-	m_recip = o.m_recip;
-	vel = o.vel;
-	accel = o.accel;
-	netForce = o.netForce;
-	netForceBack = o.netForceBack;
+object::object(double mass, double cor, poly&& bounds, const vec2& init_vel, int R, int G, int B, int A) :
+	bounds{ std::move(bounds) },
+	vel{ init_vel }
+{
+	restitution = cor;
+	m_recip = 1 / mass;
+	angular_vel = 0;
+	r = R;
+	g = G;
+	b = B;
+	a = A;
 }
-object::object(object&& o) noexcept : constAcceleration{ std::move(o.constAcceleration) }, impulses{ std::move(o.impulses) }, bounds{ std::move(o.bounds) }{
-	cor = o.cor;
+object::object(const object& o) noexcept :
+	bounds{ o.bounds },
+	vel{ o.vel },
+	net_const_accel{ o.net_const_accel },
+	const_accel{ o.const_accel },
+	net_force{ o.net_force },
+	net_force_back{ o.net_force_back },
+	accel{ o.accel },
+	accel_back{ o.accel_back }
+{
+	restitution = o.restitution;
 	m_recip = o.m_recip;
-	vel = o.vel;
-	accel = o.accel;
-	netForce = o.netForce;
-	netForceBack = o.netForceBack;
+	angular_vel = o.angular_vel;
+	r = o.r;
+	g = o.g;
+	b = o.b;
+	a = o.a;
+}
+object::object(object&& o) noexcept :
+	bounds{ std::move(o.bounds) },
+	vel{ o.vel },
+	net_const_accel{ o.net_const_accel },
+	const_accel{ std::move(o.const_accel) },
+	net_force{ o.net_force },
+	net_force_back{ o.net_force_back },
+	accel{ o.accel },
+	accel_back{ o.accel_back }
+{
+	restitution = o.restitution;
+	m_recip = o.m_recip;
+	angular_vel = o.angular_vel;
+	r = o.r;
+	g = o.g;
+	b = o.b;
+	a = o.a;
 }
 void object::update(double dt) {
-	for (int i = 0; i < impulses.size(); i++) {
-		impulses[i].second -= dt;
-		netForce += impulses[i].first;
-		if (impulses[i].second <= 0) impulses.erase(impulses.begin() + i);
-	}
-	accel = netForce * m_recip;
-	for (const auto& a : constAcceleration) {
-		accel += a.second;
-	}
+	accel += net_const_accel + net_force * m_recip;
 	vel += accel * dt;
 	bounds += vel * dt;
-	netForceBack = netForce;
-	netForce.x = 0;
-	netForce.y = 0;
+	net_force_back = accel / m_recip;
+	accel_back = accel;
+	accel.x = accel.y = 0;
+	net_force.x = net_force.y = 0;
 }
-void object::addVelocity(vec2 velocity) {
-	vel += velocity;
+
+void object::add_const_accel(const vec2& accel, std::string name) {
+	const_accel[name] = accel;
+	net_const_accel += accel;
 }
-void object::setVelocity(vec2 velocity) {
-	vel = velocity;
+void object::remove_const_accel(std::string name) {
+	if (auto it = const_accel.find(name); it != const_accel.end()) {
+		net_const_accel -= it->second;
+		const_accel.erase(it);
+	}
 }
-void object::addImpulse(vec2 force, double duration) {
-	impulses.push_back(std::make_pair(force, duration));
+vec2 object::get_const_accel(std::string name) {
+	return const_accel.at(name);
 }
-void object::addForce(vec2 force) {
-	netForce += force;
+bool object::has_const_accel(std::string name) const {
+	return const_accel.find(name) != const_accel.end();
 }
-void object::setForce(vec2 force) {
-	netForce = force;
+int object::num_of_const_accels() const {
+	return const_accel.size();
 }
-void object::addConstAccel(vec2 accel, std::string name) {
-	constAcceleration[name] = accel;
+
+vec2 object::get_prev_net_force() const {
+	return net_force_back;
 }
-void object::removeConstAcceleration(std::string name) {
-	constAcceleration.erase(name);
+
+vec2 object::get_prev_accel() const {
+	return accel_back;
 }
-vec2 object::getConstAcceleration(std::string name) {
-	return constAcceleration[name];
-}
-bool object::hasConstAcceleration(std::string name) const {
-	return constAcceleration.count(name);
-}
-int object::numOfConstAccelerations() const {
-	return constAcceleration.size();
-}
-vec2 object::getUpcomingNetForce() const {
-	return netForce;
-}
-vec2 object::getPastNetForce() const {
-	return netForceBack;
-}
-vec2 object::getVel() const {
-	return vel;
-}
-vec2 object::getAccel() const {
-	return accel;
-}
-double object::getMassRecip() const {
-	return m_recip;
-}
-double object::getMass() const {
-	return 1 / m_recip;
-}
-double object::getRestitution() {
-	return cor;
-}
+
 object &object::operator=(const object& o) noexcept {
-	cor = o.cor;
-	m_recip = o.m_recip;
-	vel = o.vel;
-	accel = o.accel;
-	netForce = o.netForce;
-	netForceBack = o.netForceBack;
 	bounds = o.bounds;
-	constAcceleration = o.constAcceleration;
-	impulses = o.impulses;
+	const_accel = o.const_accel;
+	net_const_accel = o.net_const_accel;
+	accel = o.accel;
+	accel_back = o.accel_back;
+	net_force = o.net_force;
+	net_force_back = o.net_force_back;
+	vel = o.vel;
+	restitution = o.restitution;
+	m_recip = o.m_recip;
+	angular_vel = o.angular_vel;
+	r = o.r;
+	g = o.g;
+	b = o.b;
+	a = o.a;
 	return *this;
 }
 object &object::operator=(object&& o) noexcept {
-	cor = o.cor;
-	m_recip = o.m_recip;
-	vel = o.vel;
-	accel = o.accel;
-	netForce = o.netForce;
-	netForceBack = o.netForceBack;
 	bounds = std::move(o.bounds);
-	constAcceleration = std::move(o.constAcceleration);
-	impulses = std::move(o.impulses);
+	const_accel = std::move(o.const_accel);
+	net_const_accel = o.net_const_accel;
+	accel = o.accel;
+	accel_back = o.accel_back;
+	net_force = o.net_force;
+	net_force_back = o.net_force_back;
+	vel = o.vel;
+	restitution = o.restitution;
+	m_recip = o.m_recip;
+	angular_vel = o.angular_vel;
+	r = o.r;
+	g = o.g;
+	b = o.b;
+	a = o.a;
 	return *this;
+}
+
+std::ostream& operator<<(std::ostream& o, const object& obj){
+	o << "accel: " << obj.accel.x << ", " << obj.accel.y << std::endl;
+	o << "vel: " << obj.vel.x << ", " << obj.vel .y << std::endl;
+	return o << "pos: " << obj.bounds.begin()->x << ", " << obj.bounds.begin()->y;
 }

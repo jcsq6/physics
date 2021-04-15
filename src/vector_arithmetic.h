@@ -129,9 +129,11 @@ public:
 	}
 };
 
-template<typename C, typename T>
-auto operator*(const C& e, a_vector<T> v) {
-	return v *= e;
+template<typename T>
+a_vector<T> concact(a_vector<T> v1, const a_vector<T>& v2) {
+	v1.reserve(v1.size() + v2.size());
+	v1.insert(v1.end(), v2.begin(), v2.end());
+	return v1;
 }
 
 template <class T> inline T dot(const a_vector<T>& v1, const a_vector<T>& v2) {

@@ -3,55 +3,74 @@
 #include "vector_arithmetic.h"
 #include <utility>
 
-#define EDGE std::pair<a_vector<vec2>::const_iterator, a_vector<vec2>::const_iterator>
-
 class poly;
 
+struct edge {
+	a_vector<vec2>::const_iterator p1;
+	a_vector<vec2>::const_iterator p2;
+
+	vec2 norm;
+};
+
 struct collision {
-	collision(const poly* q0, const poly* q1, double overlap, EDGE col_edge_0, EDGE col_edge_1);
+	collision(const poly* q0, const poly* q1, double overlap, const edge& reference, const edge& incident) :
+		collides{ true }, depth{ overlap }, p0{ q0 }, p1{ q1 }, r{ reference }, i{ incident }
+	{
+
+	}
 	collision(bool is_colliding = false) : collides{ is_colliding } {}
 
 	operator bool() {
 		return collides;
 	}
 	
-	vec2& min_translation_vec(int which) {
-		if (!which) return mtv0;
-		return mtv1;
+	vec2 min_translation_vec(int which) const;
+	vec2 min_translation_vec(const poly* which) const;
+
+	const vec2& normal() const {
+		return r.norm;
 	}
 
-	vec2& min_translation_vec(const poly* which) {
-		if (which == p0) return mtv0;
-		return mtv1;
+	const edge& reference() const {
+		return r;
 	}
 
-	vec2& normal(int which) {
-		if (!which) return n0;
-		return n1;
+	const edge& incident() const {
+		return i;
 	}
 
-	vec2& normal(const poly* which) {
-		if (which == p0) return n0;
-		return n1;
+	double overlap() {
+		return depth;
 	}
 
-	EDGE get_collision_edge(int which) {
-		if (!which) return e0;
-		return e1;
+	const vec2& max_collision_pt(int which) const {
+		if (!which) return q0_max_col;
+		return q1_max_col;
+	}
+	const vec2& max_collision_pt(const poly* which) const {
+		if (which == p0) return q0_max_col;
+		return q1_max_col;
 	}
 
-	EDGE get_collision_edge(const poly* which) {
-		if (which == p0) return e0;
-		return e1;
+	const poly* q0() const {
+		return p0;
+	}
+
+	const poly* q1() const {
+		return p1;
 	}
 
 private:
 	bool collides;
 
+	double depth;
+
 	const poly* p0;
 	const poly* p1;
 
-	EDGE e0, e1;
+	vec2 q0_max_col;
+	vec2 q1_max_col;
 
-	vec2 n0, n1, mtv0, mtv1;
+	edge r;
+	edge i;
 };

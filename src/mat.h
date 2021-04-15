@@ -4,7 +4,7 @@
 #include <stdexcept>
 #include <type_traits>
 
-template<typename C>
+template<typename C = double>
 class mat {
 public:
 	mat(int ht = 2, int wt = 2) : values(ht, a_vector<C>(wt, 0)), w{ wt }, h{ ht } {
@@ -41,13 +41,31 @@ public:
 		m.w = m.h = 0;
 	}
 
-	void resize(int neww, int newh) {
+	void resize(int newh, int neww) {
 		w = neww;
 		h = newh;
 		for (auto& row : values) {
 			row.resize(w);
 		}
 		values.resize(h, a_vector<C>(w, 0));
+	}
+
+	void transpose() {
+		a_vector<a_vector<C>> original(values);
+		resize(w, h);
+		for (int y = 0; y < w; y++) {
+			for (int x = 0; x < h; x++) {
+				values[x][y] = original[y][x];
+			}
+		}
+	}
+
+	template<typename T>
+	void augment(const mat<T>& m) {
+		for (int y = 0; y < m.h; y++) {
+			values[y].insert(values[y].end(), m.values[y].begin(), m.values[y].end());
+		}
+		w += m.w;
 	}
 
 	int width() const {
@@ -57,7 +75,7 @@ public:
 		return h;
 	}
 
-	long double det() const {
+	auto det()->decltype(C{} + double{}) const {
 		return (h == w) ? get_det(*this) : NAN;
 	}
 
@@ -69,81 +87,79 @@ public:
 		return values.end();
 	}
 
-	operator vec2() const {
-		return vec2(values[0][0], values[1][0]);
+	template<typename T>
+	auto operator*(const mat<T>& m)->mat<decltype(C{} * T{})> const {
+		return mat<decltype(C{} * T{})>(*this) *= m;
 	}
 
-	mat operator*(const mat& m) const {
-		mat temp(h, m.w);
-		a_vector<C> mcol1(m.h);
+	auto operator*(const vec2& v)->mat<decltype(C{} * double{})> const {
+		return mat<decltype(C{} * double{})>(*this) *= v;
+	}
+
+	template<typename T>
+	auto operator*(T t)->mat<decltype(C{} * T{})> const {
+		return mat<decltype(C{} * T{})>(*this) *= t;
+	}
+
+	template<typename T>
+	mat<C>& operator*=(const mat<T>& m) {
+		mat<decltype(C{} + T{})> tmp(h, m.w);
+		a_vector<decltype(C{} + T{}) > mcol1(m.h);
 		for (int y = 0; y < h; y++) {
 			for (int mx1 = 0; mx1 < m.w; mx1++) {
 				for (int cy = 0; cy < m.h; cy++) {
-					mcol1[cy] = m[cy][mx1];
+					mcol1[cy] = m.values[cy][mx1];
 				}
-				temp[y][mx1] = dot(values[y], mcol1);
+				tmp[y][mx1] = dot(values[y], mcol1);
 			}
 		}
-		return temp;
+		return *this = std::move(tmp);
 	}
 
-	mat operator*(const vec2& v) const{
-		mat vmat = v;
-		return *this * vmat;
+	mat<C>& operator*=(const vec2& v) {
+		mat<double> vmat = v;
+		*this *= vmat;
 	}
 
-	mat operator*(C t) const {
-		mat temp = *this;
-		for (auto& row : temp) {
+	template<typename T>
+	mat<C>& operator*=(T t) {
+		for (auto& row : values) {
 			row *= t;
 		}
-		return temp;
-	}
-
-	mat& operator*=(const mat& m) {
-		*this = *this * m;
 		return *this;
 	}
 
-	mat& operator*=(const vec2& v) {
-		*this = *this * v;
-		return *this;
+	template<typename T>
+	auto operator/(T t)->mat<decltype(C{} / T{})> {
+		return mat<decltype(C{} / T{})>(*this) /= t;
 	}
 
-	mat& operator*=(C t) {
-		*this = *this * t;
-		return *this;
-	}
-
-	mat operator/(C t) {
-		mat temp = *this;
-		for (auto& row : temp) {
-			row /= t;
-		}
-		return temp;
-	}
-
-	mat& operator/=(C t) {
+	template<typename T>
+	mat<C>& operator/=(T t) {
 		for (auto& row : values) {
 			row /= t;
 		}
 		return *this;
 	}
 
-	mat operator+(const mat& m) const {
-		return mat(values + m.values);
+	template<typename T>
+	auto operator+(const mat<T>& m)->mat<decltype(C{} + T{}) > const {
+		return mat<decltype(C{} + T{})>(*this) += m;
 	}
 
-	mat& operator+=(const mat& m) {
+	template<typename T>
+	mat<C>& operator+=(const mat<T>& m) {
 		values += m.values;
 		return *this;
 	}
 
-	mat operator-(const mat& m) const {
-		return mat(values - m.values);
+	template<typename T>
+	auto operator-(const mat<T>& m)->mat<decltype(C{} - T{})> const {
+		return mat<decltype(C{} - T{})>(*this) -= m;
 	}
 
-	mat& operator-=(const mat& m) {
+	template<typename T>
+	mat<C>& operator-=(const mat<T>& m) {
 		values -= m.values;
 		return *this;
 	}
@@ -224,49 +240,77 @@ private:
 		return total;
 	}*/
 
-	static long double get_det(mat<double> m) {
+	template<typename T>
+	static auto get_det(mat<decltype(T{} + double{})> m) -> decltype(C{} + double{}) {
 		for (int x = 0; x < m.w; x++) {
 			for (int y = x + 1; y < m.h; y++) {
-				if (!m[x][x]) {
-					std::swap(m[x], m[y]);
-					m[y] *= -1;
+				if (!m.values[x][x]) {
+					std::swap(m.values[x], m.values[y]);
+					m.values[y] *= -1;
 				}
-				if (!m[y][x]) continue;
-				m[y] += (-1 * (m[y][x] / m[x][x])) * m[x];
+				if (!m.values[y][x]) continue;
+				m.values[y] += (-1 * (m.values[y][x] / m.values[x][x])) * m.values[x];
 			}
 		}
-		double det = 1;
+		decltype(T{} + double{}) det = 1;
 		for (int y = 0; y < m.h; y++) {
-			det *= m[y][y];
+			det *= m.values[y][y];
 		}
 		return det;
 	}
 
 	template<typename T>
+	friend auto transpose(const mat<T>& m);
+
+	template<typename T, typename C>
+	friend auto augment(const mat<T>& m1, const mat<C>& m2)->mat<decltype(T{} + C{})>;
+
+	template<typename T>
+	friend auto inverse(const mat<T>& m)->mat<decltype(T{} + double{})>;
+
+	template<typename T>
 	friend class mat;
 };
+
+template<typename T>
+auto transpose(const mat<T>& m) {
+	mat<T> tmp{ m };
+	tmp.resize(m.w, m.h);
+	for (int y = 0; y < tmp.w; y++) {
+		for (int x = 0; x < tmp.h; x++) {
+			tmp.values[x][y] = m.values[y][x];
+		}
+	}
+	return tmp;
+}
+
+template<typename T, typename C>
+auto augment(const mat<T>& m1, const mat<C>& m2)->mat<decltype(T{} + C{})> {
+	mat<decltype(T{} + C{})> result = m1;
+	for (int y = 0; y < m1.height(); y++) {
+		result.values[y].insert(result.values[y].end(), m2.values[y].begin(), m2.values[y].end());
+	}
+	result.h = m1.h;
+	result.w = m1.w + m2.w;
+	return result;
+}
 
 template<typename C>
 inline vec2::vec2(const mat<C>& m){
 	x = m[0][0];
 	y = m[1][0];
-	i = true;
-}
-
-template<typename C>
-inline vec2::operator mat<C>() {
-	mat<C> temp = {
-		{x},
-		{y},
-		{1},
-	};
-	return temp;
 }
 
 template<typename C>
 inline auto vec2::operator*(const mat<C> &m) const {
+	return vec2(*this) *= m;
+}
+
+template<typename C>
+inline auto& vec2::operator*=(const mat<C>& m) {
 	mat<C> vmat{ *this };
-	return vmat * m;
+	vmat *= m;
+	return *this = vmat;
 }
 
 mat<double> translate(double x, double y);
