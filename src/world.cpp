@@ -30,8 +30,8 @@ void world::update(double dt) {
 			}
 		}
 	}
-	for (auto& obj : objects) {
-		if (obj.m_recip) obj.update(dt);
+	for (int obj = 0; obj < objects.size(); obj++) {
+		if (objects[obj].m_recip && is_in_sim[obj]) objects[obj].update(dt);
 	}
 }
 void world::draw(SDL_Renderer* renderer) const {
