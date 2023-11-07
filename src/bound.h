@@ -119,7 +119,6 @@ public:
 		auto *last_pt = &m_pts.back();
 		set_normal(last_pt, m_pts.data());
 
-		// orient();
 		calculate_center();
 	}
 
@@ -128,19 +127,6 @@ public:
 	{
 		assign(pts.begin(), pts.end());
 	}
-
-	// makes clockwise
-	// void orient()
-	// {
-	// 	float s = 0;
-	// 	auto it = m_pts.begin();
-	// 	auto prev = m_pts.end() - 1;
-	// 	for (; it < m_pts.end(); prev = it++)
-	// 		s += (it->pt.x - prev->pt.x) * (it->pt.y + prev->pt.y);
-
-	// 	if (s < 0)
-	// 		std::reverse(m_pts.begin(), m_pts.end());
-	// }
 
 	inline void translate(glm::vec2 offset)
 	{
@@ -310,6 +296,8 @@ struct polygon_view
 	}
 };
 
+#ifdef PHYSICS_DEBUG
+
 #include <ostream>
 
 template <glm::length_t size, typename T>
@@ -335,6 +323,8 @@ inline std::ostream &operator<<(std::ostream &stream, const polygon_view &p)
 	stream << ')';
 	return stream;
 }
+
+#endif
 
 // returns collision with mtv to get a out of b or false if no collision
 collision collides(const polygon_view &a, const polygon_view &b);

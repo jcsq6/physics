@@ -73,7 +73,6 @@ struct edge
 {
 	glm::vec2 max;
 	glm::vec2 a, b;
-	glm::vec2 normal;
 };
 
 edge find_best(const polygon_view &p, glm::vec2 normal)
@@ -84,9 +83,10 @@ edge find_best(const polygon_view &p, glm::vec2 normal)
 	std::size_t max_i;
 	point max_pt;
 
-	float s = 0;
+	float orientation = 0;
 	std::size_t prev = p.size() - 1;
 	point prev_pt = p[prev];
+	// calculate farthest point on p along normal
 	for (std::size_t i = 0; i < p.size(); prev = i++)
 	{
 		point cur_pt = p[i];
@@ -98,7 +98,7 @@ edge find_best(const polygon_view &p, glm::vec2 normal)
 			max_i = i;
 		}
 
-		s += (cur_pt.pt.x - prev_pt.pt.x) * (cur_pt.pt.y + prev_pt.pt.y);
+		orientation += (cur_pt.pt.x - prev_pt.pt.x) * (cur_pt.pt.y + prev_pt.pt.y);
 
 		prev_pt = cur_pt;
 	}
@@ -129,16 +129,18 @@ edge find_best(const polygon_view &p, glm::vec2 normal)
 
 	if (std::abs(next_proj) > std::abs(prev_proj))
 	{
-		if (s >= 0)
-			return {max_pt, max_pt.pt, next_pt, max_pt.normal};
-		else
-			return {max_pt, next_pt, max_pt.pt, max_pt.normal};
+		// if clockwise
+		if (orientation >= 0)
+			return {max_pt, max_pt.pt, next_pt};
+		else // if counter-clockwise
+			return {max_pt, next_pt, max_pt.pt};
 	}
 
-	if (s >= 0)
-		return {max_pt, prev_pt.pt, max_pt.pt, prev_pt.normal};
-	else
-		return {max_pt, max_pt.pt, prev_pt.pt, prev_pt.normal};
+	// if clockwise
+	if (orientation >= 0)
+		return {max_pt, prev_pt.pt, max_pt.pt};
+	else // if counter-clockwise
+		return {max_pt, max_pt.pt, prev_pt.pt};
 }
 
 manifold clip(glm::vec2 a, glm::vec2 b, glm::vec2 edge, float projection)
@@ -165,12 +167,15 @@ manifold clip(glm::vec2 a, glm::vec2 b, glm::vec2 edge, float projection)
 	return res;
 }
 
+// for use with geogebra
 #define DEBUG_MANIFOLD 0
+#if DEBUG_MANIFOLD == 1 && defined(DEBUG)
 #include <iomanip>
+#endif
 
 manifold contact_manifold(const polygon_view &a, const polygon_view &b, const collision &coll)
 {
-	#if DEBUG_MANIFOLD == 1
+	#if DEBUG_MANIFOLD == 1 && defined(DEBUG)
 	std::cout << std::fixed << std::setprecision(4);
 	std::cout << "A = " << a << '\n';
 	std::cout << "B = " << b << '\n';
@@ -179,7 +184,7 @@ manifold contact_manifold(const polygon_view &a, const polygon_view &b, const co
 	edge reference = find_best(b, coll.normal);
 	edge incident = find_best(a, -coll.normal);
 
-	#if DEBUG_MANIFOLD == 1
+	#if DEBUG_MANIFOLD == 1 && defined(DEBUG)
 	std::cout << "\nRefMax = " << reference.max
 			  << "\nRefA = " << reference.a
 			  << "\nRefB = " << reference.b
@@ -189,6 +194,7 @@ manifold contact_manifold(const polygon_view &a, const polygon_view &b, const co
 	#endif
 
 	auto edge = glm::normalize(reference.b - reference.a);
+	// clip a and b from reference.a
 	auto clipped_pts = clip(incident.a, incident.b, edge, glm::dot(edge, reference.a));
 
 	if (clipped_pts.size() < 2)
@@ -199,18 +205,20 @@ manifold contact_manifold(const polygon_view &a, const polygon_view &b, const co
 			  << "\nFirstClippedB = " << *clipped_pts.pts[1] << std::endl;
 	#endif
 
+	// clip new a and b along reference.b
 	clipped_pts = clip(*clipped_pts.pts[0], *clipped_pts.pts[1], -edge, glm::dot(-edge, reference.b));
 
 	if (clipped_pts.size() < 2)
 		return {};
 
-	#if DEBUG_MANIFOLD == 1
+	#if DEBUG_MANIFOLD == 1 && defined(DEBUG)
 	std::cout << "\nSecondClippedA = " << *clipped_pts.pts[0]
 			  << "\nSecondClippedB = " << *clipped_pts.pts[1] << std::endl;
 	#endif
 
 	glm::vec2 ref_norm{edge.y, -edge.x};
 
+	// clip new a and b along edge normal
 	float max_proj = glm::dot(ref_norm, reference.max);
 	if (glm::dot(ref_norm, *clipped_pts.pts[0]) < max_proj)
 	{
@@ -223,7 +231,7 @@ manifold contact_manifold(const polygon_view &a, const polygon_view &b, const co
 	else if (glm::dot(ref_norm, *clipped_pts.pts[1]) < max_proj)
 		clipped_pts.pts[1].reset();
 
-	#if DEBUG_MANIFOLD == 1
+	#if DEBUG_MANIFOLD == 1 && defined(DEBUG)
 	for (int i = 0; i < 2; ++i)
 	{
 		if (clipped_pts.pts[i])
@@ -234,28 +242,7 @@ manifold contact_manifold(const polygon_view &a, const polygon_view &b, const co
 	return clipped_pts;
 }
 
-edge find_incident(const polygon_view &reference, const polygon_view &incident, glm::vec2 ref_normal)
-{
-	float min_dot = std::numeric_limits<float>::infinity();
-	std::size_t min_i;
-	for (std::size_t i = 0; i < incident.size(); ++i)
-	{
-		float cur_dot = glm::dot(ref_normal, incident.normal(i));
-		if (cur_dot < min_dot)
-		{
-			min_dot = cur_dot;
-			min_i = i;
-		}
-	}
-
-	edge res;
-	std::size_t next = min_i + 1 < incident.size() ? min_i + 1 : 0;
-	res.a = incident.point(min_i);
-	res.b = incident.point(next);
-
-	return res;
-}
-
+// TODO
 float moment_of_inertia(const polygon_view &a)
 {
 	for (std::size_t i = 1; i < a.size(); ++i)

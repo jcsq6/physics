@@ -6,6 +6,8 @@ set(CMAKE_CXX_STANDARD 20)
 add_executable(physics src/main.cpp src/bound.cpp src/world.cpp)
 add_executable(collisions src/test_collisions.cpp src/bound.cpp src/world.cpp)
 
+add_compile_definitions($<$<CONFIG:Debug>:PHYSICS_DEBUG>)
+
 find_package(OpenGL REQUIRED)
 find_package(glfw3 REQUIRED)
 find_package(glew REQUIRED)

@@ -6,6 +6,8 @@ void get_dv(const particle &p1, glm::vec2 p1_center,
 			glm::vec2 *dp1v, float *dp1w,
 			glm::vec2 *dp2v, float *dp2w)
 {
+	// https://physics.stackexchange.com/questions/786641/collision-calculation-in-2d
+	// thank you to John Alexiou
 	float x1 = p1_center.x;
 	float y1 = p1_center.y;
 	float x2 = p2_center.x;
