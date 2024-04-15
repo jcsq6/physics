@@ -147,13 +147,15 @@ bool object_compare(const object &a, const object &b)
 	return a.pt.pos.y > b.pt.pos.y;
 }
 
-void world::add_object(const polygon &poly, glm::vec2 pos, glm::vec2 v_init, float angle, float w_init, float mass, glm::vec2 scale, const glm::vec4 &color)
+object *world::add_object(const polygon &poly, glm::vec2 pos, glm::vec2 v_init, float angle, float w_init, float mass, glm::vec2 scale, const glm::vec4 &color)
 {
 	auto it = shapes.find(&poly);
 	if (it == shapes.end())
 		it = shapes.emplace(&poly, std::make_unique<draw_poly>(poly.pts_begin(), poly.pts_end())).first;
 	objects.push_back({{pos, v_init, {0, grav}, angle, w_init, 0, mass, mass * 10}, color, scale, it});
 	std::sort(objects.begin(), objects.end(), object_compare);
+
+	return nullptr;
 }
 
 void world::update_internal()
@@ -165,14 +167,10 @@ void world::update_internal()
 	
 	for (const auto &[a, b, normal, contact_pts] : collisions)
 	{
-		// auto old_energy = (.5f * a->pt.m * a->pt.v.x * a->pt.v.x) + (.5f * a->pt.m * a->pt.v.y * a->pt.v.y) +
-		// 				  (.5f * b->pt.m * b->pt.v.x * b->pt.v.x) + (.5f * b->pt.m * b->pt.v.y * b->pt.v.y) +
-		// 				  (.5 * a->pt.I * a->pt.w * a->pt.w) + (.5 * b->pt.I * b->pt.w * b->pt.w);
-
 		glm::vec2 a_center = a->poly->first->center() * a->scale + a->pt.pos;
 		glm::vec2 b_center = b->poly->first->center() * b->scale + b->pt.pos;
 
-		resolve_velocities(a->pt, a_center, b->pt, b_center, contact_pts, normal, .9f);
+		resolve_velocities(a->pt, a_center, b->pt, b_center, contact_pts, normal, .85f);
 	}
 }
 

@@ -24,8 +24,8 @@ public:
 
 	world(float world_width_meters, float world_height_meters, float gravity = -10);
 
-	void add_object(const polygon &poly, glm::vec2 pos, glm::vec2 v_init, float angle, float w_init, float mass, glm::vec2 scale, const glm::vec4 &color);
-	void add_object(polygon &&poly, glm::vec2 pos, glm::vec2 v_init, float angle, float w_init, float mass, glm::vec2 scale, const glm::vec4 &color) = delete;
+	object *add_object(const polygon &poly, glm::vec2 pos, glm::vec2 v_init, float angle, float w_init, float mass, glm::vec2 scale, const glm::vec4 &color);
+	object *add_object(polygon &&poly, glm::vec2 pos, glm::vec2 v_init, float angle, float w_init, float mass, glm::vec2 scale, const glm::vec4 &color) = delete;
 
 	void update(float dt)
 	{

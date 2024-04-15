@@ -1,11 +1,17 @@
 #include "bound.h"
 #include <iostream>
 
+glm::vec2 calc_normal(glm::vec2 first, glm::vec2 second)
+{
+	glm::vec2 perp{first.y - second.y, second.x - first.x};
+	return glm::normalize(perp);
+}
+
 bool project_onto(const polygon_view &a, const polygon_view &b, float &min_intersection, collision &res)
 {
-	for (auto a_edge = a.poly->pts_begin(); a_edge != a.poly->pts_end(); ++a_edge)
+	for (std::size_t a_edge = 0; a_edge < a.poly->size(); ++a_edge)
 	{
-		glm::vec2 normal = rotate(a_edge->normal, a.angle);
+		glm::vec2 normal = a.normal(a_edge);
 
 		float amin = std::numeric_limits<float>::infinity();
 		float amax = -std::numeric_limits<float>::infinity();
@@ -75,6 +81,12 @@ struct edge
 	glm::vec2 a, b;
 };
 
+struct point
+{
+	glm::vec2 pt;
+	glm::vec2 normal;
+};
+
 edge find_best(const polygon_view &p, glm::vec2 normal)
 {
 	constexpr float epsilon = 1E-6f;
@@ -85,11 +97,11 @@ edge find_best(const polygon_view &p, glm::vec2 normal)
 
 	float orientation = 0;
 	std::size_t prev = p.size() - 1;
-	point prev_pt = p[prev];
+	point prev_pt{p.point(prev), p.normal(prev)};
 	// calculate farthest point on p along normal
 	for (std::size_t i = 0; i < p.size(); prev = i++)
 	{
-		point cur_pt = p[i];
+		point cur_pt{p.point(i), p.normal(i)};
 		auto proj = glm::dot(normal, cur_pt.pt);
 		if (proj > max)
 		{
@@ -122,7 +134,7 @@ edge find_best(const polygon_view &p, glm::vec2 normal)
 	}
 
 	glm::vec2 next_pt = p.point(next);
-	prev_pt = p[previous];
+	prev_pt = {p.point(previous), p.normal(previous)};
 
 	float next_proj = glm::dot(max_pt.normal, normal);
 	float prev_proj = glm::dot(prev_pt.normal, normal);
@@ -131,16 +143,16 @@ edge find_best(const polygon_view &p, glm::vec2 normal)
 	{
 		// if clockwise
 		if (orientation >= 0)
-			return {max_pt, max_pt.pt, next_pt};
+			return {max_pt.pt, max_pt.pt, next_pt};
 		else // if counter-clockwise
-			return {max_pt, next_pt, max_pt.pt};
+			return {max_pt.pt, next_pt, max_pt.pt};
 	}
 
 	// if clockwise
 	if (orientation >= 0)
-		return {max_pt, prev_pt.pt, max_pt.pt};
+		return {max_pt.pt, prev_pt.pt, max_pt.pt};
 	else // if counter-clockwise
-		return {max_pt, max_pt.pt, prev_pt.pt};
+		return {max_pt.pt, max_pt.pt, prev_pt.pt};
 }
 
 manifold clip(glm::vec2 a, glm::vec2 b, glm::vec2 edge, float projection)

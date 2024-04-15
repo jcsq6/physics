@@ -7,6 +7,14 @@
 #include <string>
 #include <iostream>
 
+void mouse_pos_interp(glm::dvec2 window_min, glm::dvec2 window_max, glm::dvec2 target_min, glm::dvec2 target_max, glm::dvec2 &mouse_pos)
+{
+	// y = (window_size)
+	mouse_pos.x = (target_max.x - target_min.x) / (window_max.x - window_min.x) * (mouse_pos.x - window_min.x) + target_min.x;
+	double y = window_max.y - mouse_pos.y;
+	mouse_pos.y = (target_max.y - target_min.y) / (window_max.y - window_min.y) * (y - window_min.y) + target_min.y;
+}
+
 int main()
 {
 	constexpr int target_fps = 60;
@@ -40,12 +48,13 @@ int main()
 	constexpr float world_width = window_width / world::pixels_per_meter;
 	constexpr float world_height = window_height / world::pixels_per_meter;
 
-	world handler(world_width, world_height, -20);
+	world handler(world_width, world_height, -25);
 
 	auto triangle = regular_polygon(3);
 	auto pentagon = regular_polygon(5);
 	auto rect = regular_polygon(4);
 	auto circle = regular_polygon(100);
+	auto hexagon = regular_polygon(6);
 
 	auto do_stacking_test = [&]()
 	{
@@ -66,9 +75,10 @@ int main()
 	};
 
 	// do_velocity_test();
-	do_stacking_test();
-	handler.add_object(triangle, {5, 6.5}, {20, 0}, 0, 0, 50, {2, 2}, {1, .5, .5, 1});
+	// do_stacking_test();
 	handler.add_object(rect, {world_width / 2, 5}, {0, 0}, 0, 0, 10, {1, 3}, {1, 0, 0, 1});
+	handler.add_object(hexagon, {12, 10}, {-20, 0}, 0.f, 0.f, 10.f, {2, 2}, {1, 1, .5, 1});
+	auto triangle_object = handler.add_object(triangle, {5, 6.5}, {100, 0}, 0, 0, 50, {2, 2}, {1, .5, .5, 1});
 
 	auto ortho = glm::ortho<float>(0, window_width, 0, window_height, -1.f, 1.f);
 
@@ -85,6 +95,26 @@ int main()
 			handler.update(1.f / target_fps / 2);
 		else
 			handler.update(1.f / target_fps);
+
+		// glm::dvec2 mouse;
+		// glfwGetCursorPos(win.handle, &mouse.x, &mouse.y);
+		// mouse_pos_interp({0, 0}, {window_width, window_height}, {0, 0}, {window_width, window_height}, mouse);
+
+		// mouse /= world::pixels_per_meter;
+
+		// std::cout << mouse << ", " << triangle_object->pt.pos << '\n';
+
+		// polygon_view cursor(rect, mouse, {1 / world::pixels_per_meter, 1 / world::pixels_per_meter}, 0.f);
+		// polygon_view tobj_view(*triangle_object->poly->first, triangle_object->pt.pos, triangle_object->scale, triangle_object->pt.angle);
+		// if (collides(cursor, tobj_view))
+		// {
+		// 	std::cout << "hi\n";
+		// 	auto old_pt = triangle_object->pt.pos;
+		// 	triangle_object->pt.pos = mouse;
+
+		// 	triangle_object->pt.v = (triangle_object->pt.pos - old_pt) * (float)target_fps;
+		// 	triangle_object->pt.w = 0;
+		// }
 
 		glClearColor(1, 1, 1, 1);
 		glClear(GL_COLOR_BUFFER_BIT);

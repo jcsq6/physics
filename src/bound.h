@@ -31,14 +31,6 @@ struct bounding_box
 	glm::vec2 min, max;
 };
 
-struct point
-{
-	glm::vec2 pt;
-	glm::vec2 normal;
-
-	operator glm::vec2() const { return pt; }
-};
-
 struct polygon_view;
 
 struct collision
@@ -49,10 +41,7 @@ struct collision
 
 	inline collision() : mtv{}, normal{}, collides{} {}
 
-	inline operator bool() const
-	{
-		return collides;
-	}
+	inline operator bool() const { return collides;	}
 };
 
 class polygon
@@ -61,182 +50,65 @@ public:
 	polygon() = default;
 
 	template <typename T>
-	inline polygon(std::initializer_list<glm::vec<2, T>> pts) : polygon()
-	{
-		assign(pts.begin(), pts.end());
-	}
+	polygon(std::initializer_list<glm::vec<2, T>> pts) : polygon() { assign(pts.begin(), pts.end()); }
 
 	template <typename InputIt>
-	inline polygon(InputIt first, InputIt last) : polygon()
-	{
-		assign(first, last);
-	}
+	polygon(InputIt first, InputIt last) : polygon() { assign(first, last); }
 
-	inline void reserve(std::size_t capacity)
+	void reserve(std::size_t capacity)
 	{
 		m_pts.reserve(capacity);
 	}
 
-	inline void push_back(glm::vec2 pt)
+	void push_back(glm::vec2 pt)
 	{
-		m_pts.push_back({pt, {}});
-
-		if (m_pts.size() == 1)
-			return;
-
-		// update the edge normals
-		auto *last = &m_pts.back();
-		set_normal(last - 1, last);
-		set_normal(last, m_pts.data());
-
-		calculate_center();
+		m_pts.push_back(pt);
+		m_center = (m_center * float(m_pts.size() - 1) + pt) / (float)m_pts.size();
 	}
 
 	template <typename InputIt>
-	inline void assign(InputIt first, InputIt last)
+	void assign(InputIt first, InputIt last)
 	{
 		using vec_t = typename std::iterator_traits<InputIt>::value_type;
 		static_assert(std::is_convertible_v<vec_t, glm::vec<2, float>>, "InputIt value_type must be convertible to a vec of size 2");
 
 		m_pts.clear();
-
-		if (first == last)
-			return;
-		
 		m_pts.reserve(std::distance(first, last));
-
-		m_pts.push_back({*(first++), {}});
+		
+		glm::vec2 c{0, 0};
 		for (; first != last; ++first)
 		{
-			m_pts.push_back({*first, {}});
-
-			// update the edge normals
-			auto *last_pt = &m_pts.back();
-			set_normal(last_pt - 1, last_pt);
+			m_pts.push_back(*first);
+			c += *first;
 		}
 
-		// update the normal of the last point
-		auto *last_pt = &m_pts.back();
-		set_normal(last_pt, m_pts.data());
-
-		calculate_center();
-	}
-
-	template <typename T>
-	inline void assign(std::initializer_list<glm::vec<2, T>> pts)
-	{
-		assign(pts.begin(), pts.end());
-	}
-
-	inline void translate(glm::vec2 offset)
-	{
-		for (auto &pt : m_pts)
-			pt.pt += offset;
-		m_center += offset;
-	}
-
-	// move the first point to loc and all of the other ones follow suit
-	inline void move_to(glm::vec2 loc)
-	{
-		move_to(loc, m_pts.front().pt);
-	}
-
-	// move in relation to origin
-	inline void move_to(glm::vec2 loc, glm::vec2 origin)
-	{
-		glm::vec2 off = loc - origin;
-		translate(off);
-	}
-
-	// rotate around origin
-	inline void rotate(float rads, glm::vec2 origin)
-	{
-		auto mat = rot2d(rads);
-
-		for (auto &pt : m_pts)
-		{
-			pt.pt -= origin;
-			pt.pt = mat * glm::vec3(pt.pt, 1);
-			pt.pt += origin;
-
-			pt.normal = mat * glm::vec3(pt.normal, 1);
-		}
-
-		m_center -= origin;
-		m_center = mat * glm::vec3(m_center, 1);
-		m_center += origin;
-	}
-
-	// rotate about axis around origin
-	inline void rotate(float rads, glm::vec3 axis, glm::vec2 origin)
-	{
-		auto mat = glm::rotate(glm::mat4(1.f), rads, axis);
-
-		for (auto &pt : m_pts)
-		{
-			pt.pt -= origin;
-			pt.pt = mat * glm::vec4(pt.pt, 0, 1);
-			pt.pt += origin;
-
-			pt.normal = mat * glm::vec4(pt.normal, 0, 1);
-		}
-
-		m_center -= origin;
-		m_center = mat * glm::vec4(m_center, 0, 1);
-		m_center += origin;
-	}
-
-	// scales points (does not translate)
-	inline void scale(float scl)
-	{
-		for (auto &pt : m_pts)
-			pt.pt *= scl;
-	}
-
-	glm::vec2 center() const
-	{
-		return m_center;
-	}
-
-	std::size_t size() const
-	{
-		return m_pts.size();
-	}
-
-	const point &operator[](std::size_t i) const
-	{
-		return m_pts[i];
-	}
-
-	auto pts_begin() const
-	{
-		return m_pts.begin();
-	}
-
-	auto pts_end() const
-	{
-		return m_pts.end();
-	}
-
-private:
-	std::vector<point> m_pts;
-	glm::vec2 m_center;
-
-	void calculate_center()
-	{
-		glm::vec2 c{0, 0};
-		for (const auto &pt : m_pts)
-			c += pt.pt;
-		c /= m_pts.size();
-
+		if (m_pts.size())
+			c /= m_pts.size();
+		
 		m_center = c;
 	}
 
-	static inline void set_normal(point *first, point *second)
+	template <typename T>
+	void assign(std::initializer_list<glm::vec<2, T>> pts) { assign(pts.begin(), pts.end()); }
+
+	std::size_t size() const { return m_pts.size(); }
+
+	glm::vec2 center() const { return m_center; }
+	glm::vec2 point(std::size_t i) const { return m_pts[i]; }
+
+	glm::vec2 normal(std::size_t first) const
 	{
-		glm::vec2 perp{first->pt.y - second->pt.y, second->pt.x - first->pt.x};
-		first->normal = glm::normalize(perp);
+		std::size_t second = (first + 1) % m_pts.size();
+		glm::vec2 perp{m_pts[first].y - m_pts[second].y, m_pts[second].x - m_pts[first].x};
+		return glm::normalize(perp);
 	}
+
+	auto pts_begin() const { return m_pts.begin(); }
+	auto pts_end() const { return m_pts.end(); }
+
+private:
+	std::vector<glm::vec2> m_pts;
+	glm::vec2 m_center;
 };
 
 struct polygon_view
@@ -255,20 +127,12 @@ struct polygon_view
 
 	glm::vec2 point(std::size_t i) const
 	{
-		return transform((*poly)[i].pt);
+		return transform(poly->point(i));
 	}
 
 	glm::vec2 normal(std::size_t i) const
 	{
-		return rotate((*poly)[i].normal, angle);
-	}
-
-	auto operator[](std::size_t i) const
-	{
-		auto p = (*poly)[i];
-		p.pt = transform(p.pt);
-		p.normal = rotate(p.normal, angle);
-		return p;
+		return rotate(poly->normal(i), angle);
 	}
 
 	glm::vec2 center() const
@@ -407,7 +271,7 @@ inline polygon regular_polygon(std::size_t n)
 		res.push_back(rot2d(angle / 2) * glm::vec3(0, 1, 1));
 	
 	for (std::size_t i = 1; i < n; ++i)
-		res.push_back(rot_mat * glm::vec3(res[i - 1].pt, 1));
+		res.push_back(rot_mat * glm::vec3(res.point(i - 1), 1));
 
 	return res;
 }
