@@ -50,11 +50,11 @@ int main()
 
 	world handler(world_width, world_height, -25);
 
-	auto triangle = regular_polygon(3);
-	auto pentagon = regular_polygon(5);
-	auto rect = regular_polygon(4);
-	auto circle = regular_polygon(100);
-	auto hexagon = regular_polygon(6);
+	auto triangle = std::make_shared<polygon>(regular_polygon(3));
+	auto pentagon = std::make_shared<polygon>(regular_polygon(5));
+	auto rect = std::make_shared<polygon>(regular_polygon(4));
+	auto circle = std::make_shared<polygon>(regular_polygon(100));
+	auto hexagon = std::make_shared<polygon>(regular_polygon(6));
 
 	auto do_stacking_test = [&]()
 	{

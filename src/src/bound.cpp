@@ -1,11 +1,4 @@
 #include "bound.h"
-#include <iostream>
-
-glm::vec2 calc_normal(glm::vec2 first, glm::vec2 second)
-{
-	glm::vec2 perp{first.y - second.y, second.x - first.x};
-	return glm::normalize(perp);
-}
 
 bool project_onto(const polygon_view &a, const polygon_view &b, float &min_intersection, collision &res)
 {
@@ -13,6 +6,7 @@ bool project_onto(const polygon_view &a, const polygon_view &b, float &min_inter
 	{
 		glm::vec2 normal = a.normal(a_edge);
 
+		// get projection of a onto normal
 		float amin = std::numeric_limits<float>::infinity();
 		float amax = -std::numeric_limits<float>::infinity();
 		for (std::size_t i = 0; i < a.size(); ++i)
@@ -24,6 +18,7 @@ bool project_onto(const polygon_view &a, const polygon_view &b, float &min_inter
 				amax = cur;
 		}
 
+		// get projection of b onto normal
 		float bmin = std::numeric_limits<float>::infinity();
 		float bmax = -std::numeric_limits<float>::infinity();
 		for (std::size_t i = 0; i < b.size(); ++i)
@@ -74,7 +69,6 @@ collision collides(const polygon_view &a, const polygon_view &b)
 	return {};
 }
 
-// returns edge that is most perpindicular to the normal
 struct edge
 {
 	glm::vec2 max;
@@ -87,6 +81,7 @@ struct point
 	glm::vec2 normal;
 };
 
+// returns edge that is most perpindicular to the normal
 edge find_best(const polygon_view &p, glm::vec2 normal)
 {
 	constexpr float epsilon = 1E-6f;
@@ -182,6 +177,7 @@ manifold clip(glm::vec2 a, glm::vec2 b, glm::vec2 edge, float projection)
 // for use with geogebra
 #define DEBUG_MANIFOLD 0
 #if DEBUG_MANIFOLD == 1 && defined(DEBUG)
+#include <iostream>
 #include <iomanip>
 #endif
 

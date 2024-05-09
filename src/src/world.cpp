@@ -119,43 +119,36 @@ void insertion_sort(It begin, It end, Comp cmp)
 
 world::world(float world_width_meters, float world_height_meters, float gravity) : grav{ gravity }, world_width{ world_width_meters }, world_height{ world_height_meters }
 {
-	static polygon rect = []{
-		polygon res;
-		res.reserve(4);
-		res.push_back({0, 0});
-		res.push_back({1, 0});
-		res.push_back({1, 1});
-		res.push_back({0, 1});
-		return res;
-	}();
+	static std::shared_ptr<polygon> rect = std::make_shared<polygon>(std::initializer_list<glm::vec2>{{0, 0}, {1, 0}, {1, 1}, {0, 1}});
 
-	auto it = shapes.emplace(&rect, std::unique_ptr<draw_poly>{}).first;
+	polygons.insert(rect);
 	
 	constexpr float bound_width = 10'000'000.f;
 	// bottom wall
-	objects.push_back({{{-bound_width, -bound_width}, {0, 0}, {0, 0}, 0, 0, 0, particle::infinity, particle::infinity}, {}, {bound_width * 2 + world_width, bound_width}, it});
+	objects.push_back({{{-bound_width, -bound_width}, {0, 0}, {0, 0}, 0, 0, 0, particle::infinity, particle::infinity}, {}, {bound_width * 2 + world_width, bound_width}, nullptr, rect.get()});
 	// left wall
-	objects.push_back({{{-bound_width, 0}, {0, 0}, {0, 0}, 0, 0, 0, particle::infinity, particle::infinity}, {}, {bound_width, world_height}, it});
+	objects.push_back({{{-bound_width, 0}, {0, 0}, {0, 0}, 0, 0, 0, particle::infinity, particle::infinity}, {}, {bound_width, world_height}, nullptr, rect.get()});
 	// right wall
-	objects.push_back({{{world_width, 0}, {0, 0}, {0, 0}, 0, 0, 0, particle::infinity, particle::infinity}, {}, {bound_width, world_height}, it});
+	objects.push_back({{{world_width, 0}, {0, 0}, {0, 0}, 0, 0, 0, particle::infinity, particle::infinity}, {}, {bound_width, world_height}, nullptr, rect.get()});
 	// top wall
-	objects.push_back({{{-bound_width, world_height}, {0, 0}, {0, 0}, 0, 0, 0, particle::infinity, particle::infinity}, {}, {bound_width * 2 + world_width, bound_width}, it});
+	objects.push_back({{{-bound_width, world_height}, {0, 0}, {0, 0}, 0, 0, 0, particle::infinity, particle::infinity}, {}, {bound_width * 2 + world_width, bound_width}, nullptr, rect.get()});
 }
 
+template <typename object>
 bool object_compare(const object &a, const object &b)
 {
 	return a.pt.pos.y > b.pt.pos.y;
 }
 
-object *world::add_object(const polygon &poly, glm::vec2 pos, glm::vec2 v_init, float angle, float w_init, float mass, glm::vec2 scale, const glm::vec4 &color)
+object *world::add_object(const std::shared_ptr<polygon> &poly, glm::vec2 pos, glm::vec2 v_init, float angle, float w_init, float mass, glm::vec2 scale, const glm::vec4 &color)
 {
-	auto it = shapes.find(&poly);
-	if (it == shapes.end())
-		it = shapes.emplace(&poly, std::make_unique<draw_poly>(poly.pts_begin(), poly.pts_end())).first;
-	objects.push_back({{pos, v_init, {0, grav}, angle, w_init, 0, mass, mass * 10}, color, scale, it});
-	std::sort(objects.begin(), objects.end(), object_compare);
+	if (polygons.find(poly) == polygons.end())
+		polygons.insert(poly);
+	drawable_shapes.emplace_back(poly->points());
+	objects.push_back({{pos, v_init, {0, grav}, angle, w_init, 0, mass, mass * 10}, color, scale, &drawable_shapes.back(), poly.get()});
+	objects.sort(object_compare<object>); // temporary solution
 
-	return nullptr;
+	return &objects.back();
 }
 
 void world::update_internal()
@@ -167,8 +160,8 @@ void world::update_internal()
 	
 	for (const auto &[a, b, normal, contact_pts] : collisions)
 	{
-		glm::vec2 a_center = a->poly->first->center() * a->scale + a->pt.pos;
-		glm::vec2 b_center = b->poly->first->center() * b->scale + b->pt.pos;
+		glm::vec2 a_center = a->poly->center() * a->scale + a->pt.pos;
+		glm::vec2 b_center = b->poly->center() * b->scale + b->pt.pos;
 
 		resolve_velocities(a->pt, a_center, b->pt, b_center, contact_pts, normal, .85f);
 	}
@@ -180,14 +173,15 @@ void world::resolve_bounds()
 
 	collisions.clear();
 
-	insertion_sort(objects.begin(), objects.end(), object_compare);
+	objects.sort(object_compare<object>); // temporary solution
 	
-	for (auto a = objects.begin(); a < objects.end() - 1; ++a)
+	auto a_end = std::prev(objects.end());
+	for (auto a = objects.begin(); a != a_end; ++a)
 	{
-		for (auto b = a + 1; b < objects.end(); ++b)
+		for (auto b = std::next(a); b != objects.end(); ++b)
 		{
-			polygon_view a_view(*a->poly->first, a->pt.pos, a->scale, a->pt.angle);
-			polygon_view b_view(*b->poly->first, b->pt.pos, b->scale, b->pt.angle);
+			polygon_view a_view(*a->poly, a->pt.pos, a->scale, a->pt.angle);
+			polygon_view b_view(*b->poly, b->pt.pos, b->scale, b->pt.angle);
 
 			auto res = collides(a_view, b_view);
 			if (!res || (std::abs(res.mtv.x) < epsilon && std::abs(res.mtv.y) < epsilon))
@@ -196,20 +190,14 @@ void world::resolve_bounds()
 			collisions.push_back({a, b, res.normal, contact_manifold(a_view, b_view, res)});
 			
 			bool a_inf = a->pt.m == particle::infinity;
-			bool b_inf = b->pt.m == particle::infinity;
+			// bool b_inf = b->pt.m == particle::infinity;
 
 			if (a_inf)
-			{
 				b->pt.pos -= res.mtv;
-			}
-			else if (b_inf)
-			{
-				a->pt.pos += res.mtv;
-			}
+			// else if (b_inf)
+			// 	a->pt.pos += res.mtv;
 			else
-			{
 				a->pt.pos += res.mtv;
-			}
 		}
 	}
 }

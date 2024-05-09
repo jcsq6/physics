@@ -31,7 +31,7 @@ struct bounding_box
 	glm::vec2 min, max;
 };
 
-struct polygon_view;
+class polygon_view;
 
 struct collision
 {
@@ -103,6 +103,7 @@ public:
 		return glm::normalize(perp);
 	}
 
+	const auto &points() const { return m_pts; }
 	auto pts_begin() const { return m_pts.begin(); }
 	auto pts_end() const { return m_pts.end(); }
 
@@ -111,14 +112,30 @@ private:
 	glm::vec2 m_center;
 };
 
-struct polygon_view
+class polygon_view
 {
-	inline polygon_view(const polygon &_poly) : offset{}, poly{&_poly}, scale{1.f, 1.f}, angle{0.f} {}
-	inline polygon_view(const polygon &_poly, glm::vec2 _offset, glm::vec2 _scale, float _angle) : offset{_offset}, poly{&_poly}, scale{_scale}, angle{_angle} {}
+public:
 	glm::vec2 offset;
 	glm::vec2 scale;
 	const polygon *poly;
-	float angle;
+private:
+	float sin_angle;
+	float cos_angle;
+
+public:
+	polygon_view(const polygon &_poly) : offset{}, poly{&_poly}, scale{1.f, 1.f}, sin_angle{0}, cos_angle{1} {}
+	polygon_view(const polygon &_poly, glm::vec2 _offset, glm::vec2 _scale, float _angle) : offset{_offset}, poly{&_poly}, scale{_scale}, sin_angle{std::sin(_angle)}, cos_angle{std::cos(_angle)} {}
+
+	void angle(float _angle)
+	{
+		sin_angle = std::sin(_angle);
+		cos_angle = std::cos(_angle);
+	}
+
+	float angle() const
+	{
+		return std::atan2(sin_angle, cos_angle);
+	}
 
 	std::size_t size() const
 	{
@@ -132,7 +149,10 @@ struct polygon_view
 
 	glm::vec2 normal(std::size_t i) const
 	{
-		return rotate(poly->normal(i), angle);
+		glm::vec2 first = transform(poly->points()[i]);
+		glm::vec2 second = transform(poly->points()[(i + 1) % poly->size()]);
+		glm::vec2 perp{first.y - second.y, second.x - first.x};
+		return glm::normalize(perp);
 	}
 
 	glm::vec2 center() const
@@ -149,11 +169,9 @@ struct polygon_view
 		// rotate = {{std::cos(angle), std::sin(angle), 0}, {-std::sin(angle), std::cos(angle), 0}, {0, 0, 1}};
 		// transform = translate * rotate * scale_mat;
 		// return transform * vec3((*poly)[i].pt, 1);
-		auto c = std::cos(angle);
-		auto s = std::sin(angle);
 		glm::vec2 res{
-			c * scale.x * pt.x - s * scale.y * pt.y + offset.x,
-			s * scale.x * pt.x + c * scale.y * pt.y + offset.y
+			cos_angle * scale.x * pt.x - sin_angle * scale.y * pt.y + offset.x,
+			sin_angle * scale.x * pt.x + cos_angle * scale.y * pt.y + offset.y
 		};
 
 		return res;
