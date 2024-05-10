@@ -62,6 +62,13 @@ int main()
 		return obj;
 	};
 
+	auto add_static_object = [&](const physics::polygon &poly, glm::vec2 pos, float angle, glm::vec2 scale, glm::vec4 color)
+	{
+		auto obj = handler.add_static_object(poly, pos, angle, scale);
+		world_drawer.add_object(obj, color);
+		return obj;
+	};
+
 	auto do_stacking_test = [&]()
 	{
 		add_object(circle, {world_width / 2, 11}, {0, 0}, 0, 0, 10, {1, 1}, {1, 1, 0, 1});
@@ -80,11 +87,23 @@ int main()
 		add_object(rect, {22, 8}, {1000, 1000}, 0, 0, 10, {1, 1}, {0, 1, 0, 1});
 	};
 
+	auto do_position_constraint_test = [&]()
+	{
+		auto top = add_static_object(rect, {world_width / 2, world_height * .75}, 0, {1, 1}, {1, 0, 0, 1});
+		auto a = add_object(triangle, {world_width * .25, world_height / 2}, {3, 0}, 0, 0, 10, {.5, .5}, {0, 1, 0, 1});
+		auto b = add_object(triangle, {world_width * .75, world_height / 2}, {-3, 10}, 0, 0, 10, {.5, .5}, {0, 0, 1, 1});
+
+		handler.add_constraint(std::make_unique<physics::position_constraint>(*top, *a, world_height / 3));
+		handler.add_constraint(std::make_unique<physics::position_constraint>(*top, *b, world_height / 3));
+	};
+
 	// do_velocity_test();
 	// do_stacking_test();
-	add_object(rect, {world_width / 2, 5}, {0, 0}, 0, 0, 10, {1, 3}, {1, 0, 0, 1});
-	add_object(hexagon, {12, 10}, {-20, 0}, 0.f, 0.f, 10.f, {2, 2}, {1, 1, .5, 1});
-	auto triangle_object = add_object(triangle, {5, 6.5}, {100, 0}, 0, 0, 50, {2, 2}, {1, .5, .5, 1});
+	// add_object(rect, {world_width / 2, 5}, {0, 0}, 0, 0, 10, {1, 3}, {1, 0, 0, 1});
+	// add_object(hexagon, {12, 10}, {-20, 0}, 0.f, 0.f, 10.f, {2, 2}, {1, 1, .5, 1});
+	// auto triangle_object = add_object(triangle, {5, 6.5}, {100, 0}, 0, 0, 50, {2, 2}, {1, .5, .5, 1});
+
+	do_position_constraint_test();
 
 	auto ortho = glm::ortho<float>(0, window_width, 0, window_height, -1.f, 1.f);
 

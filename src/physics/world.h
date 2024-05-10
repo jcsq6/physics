@@ -20,7 +20,7 @@ public:
 
 	// make sure poly is not destroyed before world
 	// add object of infinite mass that stays in place
-	object *add_static_object(const polygon &poly, glm::vec2 pos, float angle, float mass, glm::vec2 scale);
+	object *add_static_object(const polygon &poly, glm::vec2 pos, float angle, glm::vec2 scale);
 	object *add_static_object(polygon &&poly, glm::vec2 pos, float angle, glm::vec2 scale) = delete;
 
 	void add_constraint(std::unique_ptr<constraint> c) { constraints.push_back(std::move(c)); }

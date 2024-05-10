@@ -11,7 +11,7 @@ PHYSICS_BEG
 class constraint
 {
 public:
-	static constexpr float factor = .01;
+	static constexpr float factor = .01f;
 	virtual void update(float dt) = 0;
 	virtual ~constraint() = default;
 };
