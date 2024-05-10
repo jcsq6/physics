@@ -1,10 +1,19 @@
 #ifndef BOUND_H
 #define BOUND_H
+
+#define PHYSICS_BEG namespace physics {
+#define PHYSICS_END }
+
+#ifdef PHYSICS_DEBUG
+#include <ostream>
+#endif
+
 #include <optional>
-#include <algorithm>
 #include <glm/mat4x4.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <vector>
+
+PHYSICS_BEG
 
 inline glm::mat3 rot2d(float rads)
 {
@@ -180,8 +189,6 @@ public:
 
 #ifdef PHYSICS_DEBUG
 
-#include <ostream>
-
 template <glm::length_t size, typename T>
 inline std::ostream &operator<<(std::ostream &stream, const glm::vec<size, T> &p)
 {
@@ -293,5 +300,7 @@ inline polygon regular_polygon(std::size_t n)
 
 	return res;
 }
+
+PHYSICS_END
 
 #endif

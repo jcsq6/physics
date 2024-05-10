@@ -1,5 +1,7 @@
 #include "world.h"
 
+PHYSICS_BEG
+
 void get_dv(const particle &p1, glm::vec2 p1_center,
 			const particle &p2, glm::vec2 p2_center,
 			glm::vec2 collision_pt, glm::vec2 normal, float e,
@@ -100,38 +102,19 @@ void resolve_velocities(particle &p1, glm::vec2 p1_center, particle &p2, glm::ve
 	p2.w += dp2w;
 }
 
-template <typename It, typename Comp>
-void insertion_sort(It begin, It end, Comp cmp)
-{
-	for (auto it = std::next(begin); it != end; ++it)
-	{
-		auto key = *it;
-		auto j = it;
-		while (j != begin && cmp(key, *std::prev(j)))
-		{
-			*j = *std::prev(j);
-			--j;
-		}
-
-		*j = std::move(key);
-	}
-}
-
 world::world(float world_width_meters, float world_height_meters, float gravity) : grav{ gravity }, world_width{ world_width_meters }, world_height{ world_height_meters }
 {
-	static std::shared_ptr<polygon> rect = std::make_shared<polygon>(std::initializer_list<glm::vec2>{{0, 0}, {1, 0}, {1, 1}, {0, 1}});
-
-	polygons.insert(rect);
+	static polygon rect = {glm::vec2{0, 0}, {1, 0}, {1, 1}, {0, 1}};
 	
 	constexpr float bound_width = 10'000'000.f;
 	// bottom wall
-	objects.push_back({{{-bound_width, -bound_width}, {0, 0}, {0, 0}, 0, 0, 0, particle::infinity, particle::infinity}, {}, {bound_width * 2 + world_width, bound_width}, nullptr, rect.get()});
+	objects.push_back({{{-bound_width, -bound_width}, {0, 0}, {0, 0}, 0, 0, 0, particle::infinity, particle::infinity}, {bound_width * 2 + world_width, bound_width}, &rect});
 	// left wall
-	objects.push_back({{{-bound_width, 0}, {0, 0}, {0, 0}, 0, 0, 0, particle::infinity, particle::infinity}, {}, {bound_width, world_height}, nullptr, rect.get()});
+	objects.push_back({{{-bound_width, 0}, {0, 0}, {0, 0}, 0, 0, 0, particle::infinity, particle::infinity}, {bound_width, world_height}, &rect});
 	// right wall
-	objects.push_back({{{world_width, 0}, {0, 0}, {0, 0}, 0, 0, 0, particle::infinity, particle::infinity}, {}, {bound_width, world_height}, nullptr, rect.get()});
+	objects.push_back({{{world_width, 0}, {0, 0}, {0, 0}, 0, 0, 0, particle::infinity, particle::infinity}, {bound_width, world_height}, &rect});
 	// top wall
-	objects.push_back({{{-bound_width, world_height}, {0, 0}, {0, 0}, 0, 0, 0, particle::infinity, particle::infinity}, {}, {bound_width * 2 + world_width, bound_width}, nullptr, rect.get()});
+	objects.push_back({{{-bound_width, world_height}, {0, 0}, {0, 0}, 0, 0, 0, particle::infinity, particle::infinity}, {bound_width * 2 + world_width, bound_width}, &rect});
 }
 
 template <typename object>
@@ -140,15 +123,22 @@ bool object_compare(const object &a, const object &b)
 	return a.pt.pos.y > b.pt.pos.y;
 }
 
-object *world::add_object(const std::shared_ptr<polygon> &poly, glm::vec2 pos, glm::vec2 v_init, float angle, float w_init, float mass, glm::vec2 scale, const glm::vec4 &color)
+object *world::add_object(const polygon &poly, glm::vec2 pos, glm::vec2 v_init, float angle, float w_init, float mass, glm::vec2 scale)
 {
-	if (polygons.find(poly) == polygons.end())
-		polygons.insert(poly);
-	drawable_shapes.emplace_back(poly->points());
-	objects.push_back({{pos, v_init, {0, grav}, angle, w_init, 0, mass, mass * 10}, color, scale, &drawable_shapes.back(), poly.get()});
+	objects.push_back({{pos, v_init, {0, grav}, angle, w_init, 0, mass, mass * 10}, scale, &poly});
+	auto res = &objects.back();
 	objects.sort(object_compare<object>); // temporary solution
 
-	return &objects.back();
+	return res;
+}
+
+object *world::add_static_object(const polygon &poly, glm::vec2 pos, float angle, glm::vec2 scale)
+{
+	objects.push_back({{pos, {0, 0}, {0, 0}, angle, 0, 0, particle::infinity, particle::infinity}, scale, &poly});
+	auto res = &objects.back();
+	objects.sort(object_compare<object>); // temporary solution
+
+	return res;
 }
 
 void world::update_internal()
@@ -157,6 +147,9 @@ void world::update_internal()
 		obj.pt.update(time_step);
 
 	resolve_bounds();
+
+	for (const auto &c : constraints)
+		c->update(time_step);
 	
 	for (const auto &[a, b, normal, contact_pts] : collisions)
 	{
@@ -201,3 +194,5 @@ void world::resolve_bounds()
 		}
 	}
 }
+
+PHYSICS_END

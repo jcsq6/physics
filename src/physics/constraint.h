@@ -4,38 +4,32 @@
 #include <Eigen/Dense>
 #include <vector>
 
+#include "object.h"
+
+PHYSICS_BEG
+
 class constraint
 {
 public:
-	virtual float solve(const Eigen::VectorXf &q) const = 0;
+	static constexpr float factor = .01;
+	virtual void update(float dt) = 0;
 	virtual ~constraint() = default;
 };
 
-class constraint_handler
+class position_constraint : public constraint
 {
 public:
-	void compute()
+	position_constraint(object &object_a, object &object_b, float distance) : a{&object_a}, b{&object_b}, dist{distance}
 	{
-
 	}
+
+	void update(float dt) override;
+
 private:
-	Eigen::VectorXf q; // 3n long state vector containing positions and angles
-	Eigen::VectorXf f; // 3n long force vector containing force and torque
-	Eigen::MatrixXf M; // 3n x 3n mass/moment matrix
-	Eigen::MatrixXf M_inv; // M^-1
-	Eigen::MatrixXf J; // jacobian matrix
-	std::vector<constraint *> C;
-	// q''=M^-1*f=M^-1(F_external + F_constraint)
-
-	// C'=J*q'
-	// C''=J'*q'+J*q''
-	// C''=J'*q'+J*M^-1*(F_external + F_constraint)=0
-	// J*M^-1*F_constraint=-J'*q'-J*M^-1*F_external
-	// F_constraint^T*q'=0
-	// J*q'=0
-	// F_constraint=J^T*(lambda)
-
-	// J*M^-1*J^T*(lambda)=-J'*q'-J*M^-1*F_external
+	object *a, *b;
+	float dist;
 };
+
+PHYSICS_END
 
 #endif

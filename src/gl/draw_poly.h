@@ -32,5 +32,4 @@ private:
 	vbo m_vbo;
 };
 
-
 #endif

@@ -1,7 +1,9 @@
 #ifndef PARTICLE_H
 #define PARTICLE_H
 
-#include <glm/glm.hpp>
+#include "bound.h"
+
+PHYSICS_BEG
 
 class particle
 {
@@ -26,5 +28,14 @@ public:
         angle += w * dt;
     }
 };
+
+struct object
+{
+	particle pt;
+	glm::vec2 scale;
+	const polygon *poly;
+};
+
+PHYSICS_END
 
 #endif

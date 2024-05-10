@@ -1,7 +1,5 @@
-#include "gl_object.h"
-#include "bound.h"
-#include "particle.h"
 #include "world.h"
+#include "draw.h"
 
 #include <chrono>
 #include <string>
@@ -77,14 +75,14 @@ int main()
 
 	vao my_vao;
 
-	constexpr float world_width = window_width / world::pixels_per_meter;
-	constexpr float world_height = window_height / world::pixels_per_meter;
+	constexpr float world_width = window_width / pixels_per_meter;
+	constexpr float world_height = window_height / pixels_per_meter;
 
 	// world handler(world_width, world_height, -20);
 
-	auto triangle = regular_polygon(3);
+	auto triangle = physics::regular_polygon(3);
 	// auto pentagon = regular_polygon(5);
-	auto rect = regular_polygon(4);
+	auto rect = physics::regular_polygon(4);
 	// auto circle = regular_polygon(100);
 
 	// auto do_stacking_test = [&]()
@@ -109,26 +107,18 @@ int main()
 	// do_stacking_test();
 	// handler.add_object(triangle, {1, 7}, {50, 0}, 0, glm::radians(45.f), 50, {2, 2}, {1, .5, .5, 1});
 
-	static polygon rect_ccw = []{
-			polygon res;
-			res.reserve(4);
-			res.push_back({0, 0});
-			res.push_back({1, 0});
-			res.push_back({1, 1});
-			res.push_back({0, 1});
-			return res;
-		}();
+	physics::polygon rect_ccw = {glm::vec2{0, 0}, {1, 0}, {1, 1}, {0, 1}};
 
-	polygon_view a_view(rect, {0, 0}, {2, 1}, 0);
-	polygon_view b_view(rect_ccw, {0, 1.25}, {1, .5}, 0);
+	physics::polygon_view a_view(rect, {0, 0}, {2, 1}, 0);
+	physics::polygon_view b_view(rect_ccw, {0, 1.25}, {1, .5}, 0);
 	// b_view.angle = -.314159;
 	// b_view.offset = {.690516,.0630938};
 
-	draw_poly a_drawable(rect.pts_begin(), rect.pts_end());
-	draw_poly b_drawable(rect_ccw.pts_begin(), rect_ccw.pts_end());
+	draw_poly a_drawable(rect.points());
+	draw_poly b_drawable(rect_ccw.points());
 	draw_poly arrow({glm::vec2{-.2f, 0.f}, {-.2f, .5f}, {-.5f, .5f}, {0.f, 1.f}, {.5f, .5f}, {.2f, .5f}, {.2, 0}});
 
-	draw_poly circle(regular_polygon_pts(100));
+	draw_poly circle(physics::regular_polygon_pts(100));
 
 	auto ortho = glm::ortho<float>(-3, 3, -3, 3, -1.f, 1.f);
 
@@ -142,16 +132,16 @@ int main()
 			glfwSetWindowShouldClose(win.handle, 1);
 
 		if (glfwGetKey(win.handle, GLFW_KEY_RIGHT_SHIFT) == GLFW_PRESS)
-			b_view.angle += glm::radians(45.f) / target_fps;
+			b_view.angle(b_view.angle() + glm::radians(45.f) / target_fps);
 
 		if (glfwGetKey(win.handle, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS)
-			b_view.angle -= glm::radians(45.f) / target_fps;
+			b_view.angle(b_view.angle() - glm::radians(45.f) / target_fps);
 		
 		if (glfwGetKey(win.handle, GLFW_KEY_ENTER) == GLFW_PRESS)
 		{
 			// std::cout << "A = " << a_view << '\n';
 			// std::cout << "B = " << b_view << '\n';
-			std::cout << "angle: " << b_view.angle << '\n';
+			std::cout << "angle: " << b_view.angle() << '\n';
 			std::cout << "offset: " << b_view.offset << '\n';
 			std::cout << "scale: " << b_view.scale << '\n';
 		}
@@ -178,13 +168,13 @@ int main()
 		glUseProgram(program.id);
 		glUniformMatrix4fv(glGetUniformLocation(program.id, "ortho"), 1, GL_FALSE, &ortho[0][0]);
 
-		auto model = glm::scale(glm::rotate(glm::translate(glm::mat4(1.f), {b_view.offset, 0}), b_view.angle, {0, 0, 1}), {b_view.scale, 0});
+		auto model = glm::scale(glm::rotate(glm::translate(glm::mat4(1.f), {b_view.offset, 0}), b_view.angle(), {0, 0, 1}), {b_view.scale, 0});
 		auto color = res ? glm::vec4{0, 1, 0, .75} : glm::vec4{1, 0, 0, .75};
 		glUniformMatrix4fv(glGetUniformLocation(program.id, "model"), 1, GL_FALSE, &model[0][0]);
 		glUniform4fv(glGetUniformLocation(program.id, "color"), 1, &color[0]);
 		b_drawable.draw(0);
 
-		model = glm::scale(glm::rotate(glm::translate(glm::mat4(1.f), {a_view.offset, 0}), a_view.angle, {0, 0, 1}), {a_view.scale, 0});
+		model = glm::scale(glm::rotate(glm::translate(glm::mat4(1.f), {a_view.offset, 0}), a_view.angle(), {0, 0, 1}), {a_view.scale, 0});
 		color = {1, 1, 0, .75};
 		glUniformMatrix4fv(glGetUniformLocation(program.id, "model"), 1, GL_FALSE, &model[0][0]);
 		glUniform4fv(glGetUniformLocation(program.id, "color"), 1, &color[0]);
@@ -192,7 +182,7 @@ int main()
 
 		if (res)
 		{
-			manifold contacts = contact_manifold(a_view, b_view, res);
+			physics::manifold contacts = contact_manifold(a_view, b_view, res);
 			color = {0, 0, 0, 1};
 			glUniform4fv(glGetUniformLocation(program.id, "color"), 1, &color[0]);
 			for (std::size_t i = 0; i < 2; ++i)

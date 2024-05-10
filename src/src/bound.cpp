@@ -1,5 +1,7 @@
 #include "bound.h"
 
+PHYSICS_BEG
+
 bool project_onto(const polygon_view &a, const polygon_view &b, float &min_intersection, collision &res)
 {
 	for (std::size_t a_edge = 0; a_edge < a.poly->size(); ++a_edge)
@@ -260,3 +262,5 @@ float moment_of_inertia(const polygon_view &a)
 
 	return 0;
 }
+
+PHYSICS_END

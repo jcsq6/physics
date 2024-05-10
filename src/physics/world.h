@@ -1,32 +1,29 @@
 #ifndef WORLD_H
 #define WORLD_H
 #include <list>
-#include <unordered_set>
-#include <algorithm>
 #include <memory>
-#include "bound.h"
-#include "particle.h"
-#include "draw_poly.h"
 
-struct object
-{
-	particle pt;
-	glm::vec4 color;
-	glm::vec2 scale;
-	const draw_poly *drawable_shape;
-	const polygon *poly;
-};
+#include "constraint.h"
 
-void resolve_velocities(particle &p1, glm::vec2 p1_center, particle &p2, glm::vec2 p2_center, glm::vec2 collision_pt, glm::vec2 normal, float e);
+PHYSICS_BEG
+
+void resolve_velocities(particle &p1, glm::vec2 p1_center, particle &p2, glm::vec2 p2_center, manifold collision_pt, glm::vec2 normal, float e);
 
 class world
 {
 public:
-	static constexpr float pixels_per_meter = 40;
-
 	world(float world_width_meters, float world_height_meters, float gravity = -10);
 
-	object *add_object(const std::shared_ptr<polygon> &poly, glm::vec2 pos, glm::vec2 v_init, float angle, float w_init, float mass, glm::vec2 scale, const glm::vec4 &color);
+	// make sure poly is not destroyed before world
+	object *add_object(const polygon &poly, glm::vec2 pos, glm::vec2 v_init, float angle, float w_init, float mass, glm::vec2 scale);
+	object *add_object(polygon &&, glm::vec2, glm::vec2, float, float, float, glm::vec2) = delete;
+
+	// make sure poly is not destroyed before world
+	// add object of infinite mass that stays in place
+	object *add_static_object(const polygon &poly, glm::vec2 pos, float angle, float mass, glm::vec2 scale);
+	object *add_static_object(polygon &&poly, glm::vec2 pos, float angle, glm::vec2 scale) = delete;
+
+	void add_constraint(std::unique_ptr<constraint> c) { constraints.push_back(std::move(c)); }
 
 	void update(float dt)
 	{
@@ -35,19 +32,6 @@ public:
 				update_internal();
 	}
 
-	void draw(int pos_attribute, int color_uniform, int model_uniform) const
-	{
-		for (const auto &obj : objects)
-		{
-			if (!obj.drawable_shape)
-				continue;
-			
-			auto model = glm::scale(glm::rotate(glm::translate(glm::mat4(1.f), {obj.pt.pos * pixels_per_meter, 0}), obj.pt.angle, {0, 0, 1}), {obj.scale * pixels_per_meter, 0});
-			glUniformMatrix4fv(model_uniform, 1, GL_FALSE, &model[0][0]);
-			glUniform4fv(color_uniform, 1, &obj.color[0]);
-			obj.drawable_shape->draw(pos_attribute);
-		}
-	}
 private:
 	struct collision_pair
 	{
@@ -57,9 +41,8 @@ private:
 	};
 
 	std::list<object> objects;
-	std::unordered_set<std::shared_ptr<polygon>> polygons;
-	std::list<draw_poly> drawable_shapes;
 	std::vector<collision_pair> collisions;
+	std::vector<std::unique_ptr<constraint>> constraints;
 
 	float grav;
 	float world_width, world_height;
@@ -69,6 +52,9 @@ private:
 	void update_internal();
 	void resolve_bounds();
 };
+
+
+PHYSICS_END
 
 
 #endif
