@@ -12,6 +12,7 @@ void resolve_velocities(particle &p1, glm::vec2 p1_center, particle &p2, glm::ve
 class world
 {
 public:
+	world() : grav{}, world_width{}, world_height{} {}
 	world(float world_width_meters, float world_height_meters, float gravity = -10);
 
 	// make sure poly is not destroyed before world
@@ -31,6 +32,10 @@ public:
 			for (; dt > 0; dt -= time_step)
 				update_internal();
 	}
+
+	float width() const { return world_width; }
+	float height() const { return world_height; }
+	float gravity() const { return grav; }
 
 private:
 	struct collision_pair

@@ -3,6 +3,9 @@
 
 #include <chrono>
 #include <string>
+
+#include "json.hpp"
+
 // #include <iostream>
 
 void mouse_pos_interp(glm::dvec2 window_min, glm::dvec2 window_max, glm::dvec2 target_min, glm::dvec2 target_max, glm::dvec2 &mouse_pos)
@@ -13,8 +16,16 @@ void mouse_pos_interp(glm::dvec2 window_min, glm::dvec2 window_max, glm::dvec2 t
 	mouse_pos.y = (target_max.y - target_min.y) / (window_max.y - window_min.y) * (y - window_min.y) + target_min.y;
 }
 
-int main()
+physics::world parse_json(const char *filename, drawer &world_drawer);
+
+int main(int argc, char **argv)
 {
+	if (argc != 2)
+	{
+		std::cerr << "Usage: " << argv[0] << " <config_file.json>\n";
+		std::exit(1);
+	}
+
 	constexpr int target_fps = 60;
 	constexpr auto target_frame_duration = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::duration<double>(1.0 / target_fps));
 
@@ -43,59 +54,57 @@ int main()
 
 	vao my_vao;
 
-	constexpr float world_width = window_width / pixels_per_meter;
-	constexpr float world_height = window_height / pixels_per_meter;
-
-	physics::world handler(world_width, world_height, -25);
 	drawer world_drawer;
+	physics::world handler;
 
-	auto triangle = physics::regular_polygon(3);
-	auto pentagon = physics::regular_polygon(5);
-	auto rect = physics::regular_polygon(4);
-	auto circle = physics::regular_polygon(100);
-	auto hexagon = physics::regular_polygon(6);
-
-	auto add_object = [&](const physics::polygon &poly, glm::vec2 pos, glm::vec2 v_init, float angle, float w_init, float mass, glm::vec2 scale, glm::vec4 color)
+	try
 	{
-		auto obj = handler.add_object(poly, pos, v_init, angle, w_init, mass, scale);
-		world_drawer.add_object(obj, color);
-		return obj;
-	};
-
-	auto add_static_object = [&](const physics::polygon &poly, glm::vec2 pos, float angle, glm::vec2 scale, glm::vec4 color)
+		handler = parse_json(argv[1], world_drawer);
+	}
+	catch(const std::exception& e)
 	{
-		auto obj = handler.add_static_object(poly, pos, angle, scale);
-		world_drawer.add_object(obj, color);
-		return obj;
-	};
-
-	auto do_stacking_test = [&]()
-	{
-		add_object(circle, {world_width / 2, 11}, {0, 0}, 0, 0, 10, {1, 1}, {1, 1, 0, 1});
-		add_object(pentagon, {world_width / 2, 9}, {0, 0}, 0, 0, 10, {1, 1}, {1, 0, 1, 1});
-		add_object(triangle, {world_width / 2, 7}, {0, 0}, 0, 0, 10, {.5, .5}, {1, 0, 0, 1});
-		add_object(rect, {world_width / 2, 5}, {0, 0}, 0, 0, 10, {1, 1}, {0, 0, 1, 1});
-		add_object(rect, {world_width / 2, 3}, {0, 0}, 0, 0, 10, {1, 1}, {0, 1, 0, 1});
-	};
+		std::cerr << "Failed to read config file: " << e.what() << '\n';
+		std::exit(1);
+	}
 	
-	auto do_velocity_test = [&]()
-	{
-		add_object(circle, {12, 11}, {100, 0}, 0, 0, 10, {1, 1}, {1, 1, 0, 1});
-		add_object(pentagon, {18, 9}, {-1000, -1000}, 0, 0, 10, {1, 1}, {1, 0, 1, 1});
-		add_object(triangle, {2, 3}, {50, 50}, 0, 0, 10, {.5, .5}, {1, 0, 0, 1});
-		add_object(rect, {4, 12}, {-500, 0}, 0, 0, 10, {1, 1}, {0, 0, 1, 1});
-		add_object(rect, {22, 8}, {1000, 1000}, 0, 0, 10, {1, 1}, {0, 1, 0, 1});
-	};
 
-	auto do_position_constraint_test = [&]()
-	{
-		auto top = add_static_object(rect, {world_width / 2, world_height * .75}, 0, {1, 1}, {1, 0, 0, 1});
-		auto a = add_object(triangle, {world_width * .25, world_height / 2}, {3, 0}, 0, 0, 10, {.5, .5}, {0, 1, 0, 1});
-		auto b = add_object(triangle, {world_width * .75, world_height / 2}, {-3, 10}, 0, 0, 10, {.5, .5}, {0, 0, 1, 1});
+	// auto triangle = physics::regular_polygon(3);
+	// auto pentagon = physics::regular_polygon(5);
+	// auto rect = physics::regular_polygon(4);
+	// auto circle = physics::regular_polygon(100);
+	// auto hexagon = physics::regular_polygon(6);
 
-		handler.add_constraint(std::make_unique<physics::position_constraint>(*top, *a, world_height / 3));
-		handler.add_constraint(std::make_unique<physics::position_constraint>(*top, *b, world_height / 3));
-	};
+	// auto add_object = [&](const physics::polygon &poly, glm::vec2 pos, glm::vec2 v_init, float angle, float w_init, float mass, glm::vec2 scale, glm::vec4 color)
+	// {
+	// 	auto obj = handler.add_object(poly, pos, v_init, angle, w_init, mass, scale);
+	// 	world_drawer.add_object(obj, color);
+	// 	return obj;
+	// };
+
+	// auto add_static_object = [&](const physics::polygon &poly, glm::vec2 pos, float angle, glm::vec2 scale, glm::vec4 color)
+	// {
+	// 	auto obj = handler.add_static_object(poly, pos, angle, scale);
+	// 	world_drawer.add_object(obj, color);
+	// 	return obj;
+	// };
+
+	// auto do_stacking_test = [&]()
+	// {
+	// 	add_object(circle, {world_width / 2, 11}, {0, 0}, 0, 0, 10, {1, 1}, {1, 1, 0, 1});
+	// 	add_object(pentagon, {world_width / 2, 9}, {0, 0}, 0, 0, 10, {1, 1}, {1, 0, 1, 1});
+	// 	add_object(triangle, {world_width / 2, 7}, {0, 0}, 0, 0, 10, {.5, .5}, {1, 0, 0, 1});
+	// 	add_object(rect, {world_width / 2, 5}, {0, 0}, 0, 0, 10, {1, 1}, {0, 0, 1, 1});
+	// 	add_object(rect, {world_width / 2, 3}, {0, 0}, 0, 0, 10, {1, 1}, {0, 1, 0, 1});
+	// };
+	
+	// auto do_velocity_test = [&]()
+	// {
+	// 	add_object(circle, {12, 11}, {100, 0}, 0, 0, 10, {1, 1}, {1, 1, 0, 1});
+	// 	add_object(pentagon, {18, 9}, {-1000, -1000}, 0, 0, 10, {1, 1}, {1, 0, 1, 1});
+	// 	add_object(triangle, {2, 3}, {50, 50}, 0, 0, 10, {.5, .5}, {1, 0, 0, 1});
+	// 	add_object(rect, {4, 12}, {-500, 0}, 0, 0, 10, {1, 1}, {0, 0, 1, 1});
+	// 	add_object(rect, {22, 8}, {1000, 1000}, 0, 0, 10, {1, 1}, {0, 1, 0, 1});
+	// };
 
 	// do_velocity_test();
 	// do_stacking_test();
@@ -103,7 +112,7 @@ int main()
 	// add_object(hexagon, {12, 10}, {-20, 0}, 0.f, 0.f, 10.f, {2, 2}, {1, 1, .5, 1});
 	// auto triangle_object = add_object(triangle, {5, 6.5}, {100, 0}, 0, 0, 50, {2, 2}, {1, .5, .5, 1});
 
-	do_position_constraint_test();
+	// do_position_constraint_test();
 
 	auto ortho = glm::ortho<float>(0, window_width, 0, window_height, -1.f, 1.f);
 
@@ -147,4 +156,232 @@ int main()
 			while (std::chrono::steady_clock::now() - start < sleep_time);
 		}
 	}
+}
+
+#include <unordered_map>
+#include <fstream>
+
+physics::world parse_json(const char *filename, drawer &world_drawer)
+{
+	std::ifstream file(filename);
+	if (!file)
+	{
+		std::cerr << "Could not open file: " << filename << '\n';
+		std::exit(1);
+	}
+
+	nlohmann::json data = nlohmann::json::parse(file);
+	float gravity;
+	if (data.contains("gravity"))
+		gravity = data["gravity"];
+	else
+		gravity = -25;
+	if (!data.contains("width"))
+	{
+		std::cerr << "Could not find width in config file\n";
+		std::exit(1);
+	}
+	if (!data.contains("height"))
+	{
+		std::cerr << "Could not find height in config file\n";
+		std::exit(1);
+	}
+
+	physics::world res(data["width"], data["height"], gravity);
+
+	static auto triangle = physics::regular_polygon(3);
+	static auto pentagon = physics::regular_polygon(5);
+	static auto rect = physics::regular_polygon(4);
+	static auto circle = physics::regular_polygon(100);
+	static auto hexagon = physics::regular_polygon(6);
+
+	std::unordered_map<std::string, physics::object *> objects;
+
+	if (data.contains("objects"))
+	{
+		int i = 0;
+		for (auto &o : data["objects"])
+		{
+			++i;
+			std::unordered_map<std::string, physics::object *>::iterator loc;
+			if (o.contains("name"))
+			{
+				if (objects.find(o["name"]) != objects.end())
+				{
+					std::cerr << "Duplicate object name: " << o["name"] << std::endl;
+					continue;
+				}
+
+				loc = objects.insert({o["name"], nullptr}).first;
+			}
+			else
+			{
+				std::cerr << "No name in object #" << i << std::endl;
+				continue;
+			}
+
+			physics::polygon *p = nullptr;
+
+			if (o.contains("shape"))
+			{
+				if (o["shape"] == "triangle")
+					p = &triangle;
+				else if (o["shape"] == "pentagon")
+					p = &pentagon;
+				else if (o["shape"] == "rectangle")
+					p = &rect;
+				else if (o["shape"] == "circle")
+					p = &circle;
+				else if (o["shape"] == "hexagon")
+					p = &hexagon;
+			}
+			else
+			{
+				std::cerr << "No shape in object #" << i << std::endl;
+				continue;
+			}
+
+			glm::vec2 pos;
+			if (o.contains("pos"))
+				pos = {o["pos"][0], o["pos"][1]};
+			else
+			{
+				std::cerr << "No pos in object #" << i << std::endl;
+				continue;
+			}
+
+			glm::vec2 scale;
+			if (o.contains("scale"))
+				scale = {o["scale"][0], o["scale"][1]};
+			else
+			{
+				std::cerr << "No scale in object #" << i << std::endl;
+				continue;
+			}
+
+			float angle;
+			if (o.contains("angle"))
+				angle = o["angle"];
+			else
+				angle = 0;
+
+			glm::vec4 color;
+			if (o.contains("color"))
+				color = {o["color"][0], o["color"][1], o["color"][2], o["color"][3]};
+			else
+				color = {0, 0, 0, 1};
+
+			enum class object_type { dynamic, static_type };
+			object_type type;
+			if (o.contains("type"))
+			{
+				if (o["type"] == "dynamic")
+					type = object_type::dynamic;
+				else if (o["type"] == "static")
+					type = object_type::static_type;
+				else
+				{
+					std::cerr << "Unknown object type: " << o["type"] << std::endl;
+					continue;
+				}
+			}
+			else
+			{
+				std::cerr << "No type in object #" << i << std::endl;
+				continue;
+			}
+
+			if (type == object_type::dynamic)
+			{
+				glm::vec2 vel;
+				if (o.contains("vel"))
+					vel = {o["vel"][0], o["vel"][1]};
+				else
+					vel = {};
+
+				float w;
+				if (o.contains("w"))
+					w = o["w"];
+				else
+					w = 0;
+
+				float mass;
+				if (o.contains("mass"))
+					mass = o["mass"];
+				else
+					mass = 1;
+
+				loc->second = res.add_object(*p, pos, vel, angle, w, mass, scale);
+			}
+			else
+				loc->second = res.add_static_object(*p, pos, angle, scale);
+
+			world_drawer.add_object(loc->second, color);
+		}
+	}
+
+	if (data.contains("constraints"))
+	{
+		int i = 0;
+		for (auto &c : data["constraints"])
+		{
+			++i;
+			if (c.contains("type"))
+			{
+				if (c["type"] == "position")
+				{
+					if (c.contains("objects"))
+					{
+						if (c["objects"].size() != 2)
+						{
+							std::cerr << "Position constraint must have two objects" << std::endl;
+							continue;
+						}
+
+						auto obj1 = objects.find(c["objects"][0]);
+						auto obj2 = objects.find(c["objects"][1]);
+
+						if (obj1 == objects.end())
+						{
+							std::cerr << "Object " << c["objects"][0] << " not found" << std::endl;
+							continue;
+						}
+						if (obj2 == objects.end())
+						{
+							std::cerr << "Object " << c["objects"][1] << " not found" << std::endl;
+							continue;
+						}
+
+						float dist;
+						if (c.contains("distance"))
+							dist = c["distance"];
+						else
+						{
+							std::cerr << "No distance in constraint #" << i << std::endl;
+							continue;
+						}
+
+						res.add_constraint(std::make_unique<physics::position_constraint>(*obj1->second, *obj2->second, dist));
+					}
+					else
+					{
+						std::cerr << "No objects in constraint #" << i << std::endl;
+						continue;
+					}
+				}
+				else
+				{
+					std::cerr << "Unknown constraint type: " << c["type"] << std::endl;
+					continue;
+				}
+			}
+			else
+			{
+				std::cerr << "No type in constraint #" << i << std::endl;
+				continue;
+			}
+		}
+	}
+
+	return res;
 }

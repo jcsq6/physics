@@ -1,0 +1,62 @@
+{
+	"gravity": -25,
+	"width": 24,
+	"height": 13.5,
+	"objects": [
+		{
+			"name": "triangle1",
+			"shape": "triangle",
+			"type": "dynamic",
+			"pos": [6, 6.75],
+			"vel": [3, 0],
+			"angle": 0,
+			"w": 0,
+			"mass": 10,
+			"scale": [1, 1],
+			"color": [0, 0, 1, 1]
+		},
+		{
+			"name": "triangle2",
+			"shape": "triangle",
+			"type": "dynamic",
+			"pos": [18, 6.75],
+			"vel": [-3, 10],
+			"angle": 0,
+			"w": 0,
+			"mass": 10,
+			"scale": [1, 1],
+			"color": [0, 1, 0, 1]
+		},
+		{
+			"name": "base",
+			"shape": "rectangle",
+			"type": "static",
+			"pos": [12, 6.75],
+			"angle": 0,
+			"scale": [1, 1],
+			"color": [1, 0, 0, 1]
+		},
+		{
+			"name": "p",
+			"shape": "pentagon",
+			"type": "dynamic",
+			"pos": [1, 1],
+			"scale": [2, 2],
+			"color": [1, 0, 1, 1],
+			"vel": [30, 30],
+			"mass": 50
+		}
+	],
+	"constraints": [
+		{
+			"type": "position",
+			"objects": ["base", "triangle1"],
+			"distance": 4
+		},
+		{
+			"type": "position",
+			"objects": ["base", "triangle2"],
+			"distance": 4
+		}
+	]
+}
