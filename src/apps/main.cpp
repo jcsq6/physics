@@ -66,53 +66,6 @@ int main(int argc, char **argv)
 		std::cerr << "Failed to read config file: " << e.what() << '\n';
 		std::exit(1);
 	}
-	
-
-	// auto triangle = physics::regular_polygon(3);
-	// auto pentagon = physics::regular_polygon(5);
-	// auto rect = physics::regular_polygon(4);
-	// auto circle = physics::regular_polygon(100);
-	// auto hexagon = physics::regular_polygon(6);
-
-	// auto add_object = [&](const physics::polygon &poly, glm::vec2 pos, glm::vec2 v_init, float angle, float w_init, float mass, glm::vec2 scale, glm::vec4 color)
-	// {
-	// 	auto obj = handler.add_object(poly, pos, v_init, angle, w_init, mass, scale);
-	// 	world_drawer.add_object(obj, color);
-	// 	return obj;
-	// };
-
-	// auto add_static_object = [&](const physics::polygon &poly, glm::vec2 pos, float angle, glm::vec2 scale, glm::vec4 color)
-	// {
-	// 	auto obj = handler.add_static_object(poly, pos, angle, scale);
-	// 	world_drawer.add_object(obj, color);
-	// 	return obj;
-	// };
-
-	// auto do_stacking_test = [&]()
-	// {
-	// 	add_object(circle, {world_width / 2, 11}, {0, 0}, 0, 0, 10, {1, 1}, {1, 1, 0, 1});
-	// 	add_object(pentagon, {world_width / 2, 9}, {0, 0}, 0, 0, 10, {1, 1}, {1, 0, 1, 1});
-	// 	add_object(triangle, {world_width / 2, 7}, {0, 0}, 0, 0, 10, {.5, .5}, {1, 0, 0, 1});
-	// 	add_object(rect, {world_width / 2, 5}, {0, 0}, 0, 0, 10, {1, 1}, {0, 0, 1, 1});
-	// 	add_object(rect, {world_width / 2, 3}, {0, 0}, 0, 0, 10, {1, 1}, {0, 1, 0, 1});
-	// };
-	
-	// auto do_velocity_test = [&]()
-	// {
-	// 	add_object(circle, {12, 11}, {100, 0}, 0, 0, 10, {1, 1}, {1, 1, 0, 1});
-	// 	add_object(pentagon, {18, 9}, {-1000, -1000}, 0, 0, 10, {1, 1}, {1, 0, 1, 1});
-	// 	add_object(triangle, {2, 3}, {50, 50}, 0, 0, 10, {.5, .5}, {1, 0, 0, 1});
-	// 	add_object(rect, {4, 12}, {-500, 0}, 0, 0, 10, {1, 1}, {0, 0, 1, 1});
-	// 	add_object(rect, {22, 8}, {1000, 1000}, 0, 0, 10, {1, 1}, {0, 1, 0, 1});
-	// };
-
-	// do_velocity_test();
-	// do_stacking_test();
-	// add_object(rect, {world_width / 2, 5}, {0, 0}, 0, 0, 10, {1, 3}, {1, 0, 0, 1});
-	// add_object(hexagon, {12, 10}, {-20, 0}, 0.f, 0.f, 10.f, {2, 2}, {1, 1, .5, 1});
-	// auto triangle_object = add_object(triangle, {5, 6.5}, {100, 0}, 0, 0, 50, {2, 2}, {1, .5, .5, 1});
-
-	// do_position_constraint_test();
 
 	auto ortho = glm::ortho<float>(0, window_width, 0, window_height, -1.f, 1.f);
 

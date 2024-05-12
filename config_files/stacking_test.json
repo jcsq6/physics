@@ -1,0 +1,39 @@
+{
+	"gravity": -25,
+	"width": 24,
+	"height": 13.5,
+	"objects": [
+		{
+			"name": "triangle1",
+			"shape": "triangle",
+			"type": "dynamic",
+			"pos": [12, 10],
+			"scale": [1, 1],
+			"color": [1, 0, 0, 1]
+		},
+		{
+			"name": "rect1",
+			"shape": "rectangle",
+			"type": "dynamic",
+			"pos": [12, 8],
+			"scale": [1, 1],
+			"color": [1, 0, 1, 1]
+		},
+		{
+			"name": "rect2",
+			"shape": "rectangle",
+			"type": "dynamic",
+			"pos": [12, 6],
+			"scale": [1, 1],
+			"color": [0, 0, 1, 1]
+		},
+		{
+			"name": "rect3",
+			"shape": "rectangle",
+			"type": "dynamic",
+			"pos": [12, 4],
+			"scale": [1, 1],
+			"color": [1, 1, 0, 1]
+		}
+	]
+}

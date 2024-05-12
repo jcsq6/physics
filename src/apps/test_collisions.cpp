@@ -85,28 +85,6 @@ int main()
 	auto rect = physics::regular_polygon(4);
 	// auto circle = regular_polygon(100);
 
-	// auto do_stacking_test = [&]()
-	// {
-	// 	handler.add_object(circle, {world_width / 2, 11}, {0, 0}, 0, 0, 10, {1, 1}, {1, 1, 0, 1});
-	// 	handler.add_object(pentagon, {world_width / 2, 9}, {0, 0}, 0, 0, 10, {1, 1}, {1, 0, 1, 1});
-	// 	handler.add_object(triangle, {world_width / 2, 7}, {0, 0}, 0, 0, 10, {.5, .5}, {1, 0, 0, 1});
-	// 	handler.add_object(rect, {world_width / 2, 5}, {0, 0}, 0, 0, 10, {1, 1}, {0, 0, 1, 1});
-	// 	handler.add_object(rect, {world_width / 2, 3}, {0, 0}, 0, 0, 10, {1, 1}, {0, 1, 0, 1});
-	// };
-	
-	// auto do_velocity_test = [&]()
-	// {
-	// 	handler.add_object(circle, {12, 11}, {100, 0}, 0, 0, 10, {1, 1}, {1, 1, 0, 1});
-	// 	handler.add_object(pentagon, {18, 9}, {-1000, -1000}, 0, 0, 10, {1, 1}, {1, 0, 1, 1});
-	// 	handler.add_object(triangle, {2, 3}, {50, 50}, 0, 0, 10, {.5, .5}, {1, 0, 0, 1});
-	// 	handler.add_object(rect, {4, 12}, {-500, 0}, 0, 0, 10, {1, 1}, {0, 0, 1, 1});
-	// 	handler.add_object(rect, {22, 8}, {1000, 1000}, 0, 0, 10, {1, 1}, {0, 1, 0, 1});
-	// };
-
-	// // do_velocity_test();
-	// do_stacking_test();
-	// handler.add_object(triangle, {1, 7}, {50, 0}, 0, glm::radians(45.f), 50, {2, 2}, {1, .5, .5, 1});
-
 	physics::polygon rect_ccw = {glm::vec2{0, 0}, {1, 0}, {1, 1}, {0, 1}};
 
 	physics::polygon_view a_view(rect, {0, 0}, {2, 1}, 0);
