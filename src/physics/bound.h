@@ -4,14 +4,16 @@
 #define PHYSICS_BEG namespace physics {
 #define PHYSICS_END }
 
-#ifdef PHYSICS_DEBUG
 #include <ostream>
-#endif
-
 #include <optional>
-#include <glm/mat4x4.hpp>
-#include <glm/gtc/matrix_transform.hpp>
 #include <vector>
+#include <array>
+
+#include <ranges>
+
+#include <glm/gtc/matrix_transform.hpp>
+
+#include "trig.h"
 
 PHYSICS_BEG
 
@@ -19,6 +21,14 @@ inline glm::mat3 rot2d(float rads)
 {
 	auto c = std::cos(rads);
 	auto s = std::sin(rads);
+	glm::mat3 mat({c, s, 0}, {-s, c, 0}, {0, 0, 1});
+	return mat;
+}
+
+consteval glm::mat3 const_rot2d(float rads)
+{
+	auto c = math::cos(rads);
+	auto s = math::sin(rads);
 	glm::mat3 mat({c, s, 0}, {-s, c, 0}, {0, 0, 1});
 	return mat;
 }
@@ -40,34 +50,197 @@ struct bounding_box
 	glm::vec2 min, max;
 };
 
-class polygon_view;
+class shape_view;
 
 struct collision
 {
-	glm::vec2 mtv;
 	glm::vec2 normal;
+	glm::vec2 a_contact; // contact point of shape "a" (first shape passed to collides)
+	glm::vec2 b_contact; // contact point of shape "b" (second shape passed to collides)
+	std::vector<glm::vec2> simplex;
+	float dist;
 	bool collides;
 
-	inline collision() : mtv{}, normal{}, collides{} {}
+	collision() : normal{}, dist{}, collides{} {}
+	collision(glm::vec2 _normal, float _dist, glm::vec2 a_pt, glm::vec2 b_pt) : normal{_normal}, a_contact{a_pt}, b_contact{b_pt}, dist{_dist}, collides{true} {}
 
-	inline operator bool() const { return collides;	}
+	operator bool() const { return collides; }
 };
 
-class polygon
+using length_type = unsigned int;
+
+// shapes are primative shapes, not meant to be transformed
+// for transformed shapes, use shape_view's
+class abstract_shape
+{
+public:
+	static constexpr length_type infinity = std::numeric_limits<length_type>::max();
+
+	virtual ~abstract_shape() = default;
+	virtual glm::vec2 center() const { return {0, 0}; }
+	virtual length_type size() const = 0;
+
+protected:
+	virtual glm::vec2 support(glm::vec2 dir) const = 0;
+
+	friend collision collides(const shape_view &a, const shape_view &b);
+	friend class shape_view;
+};
+
+constexpr static int dynamic_size = -1;
+
+class abstract_polygon : public abstract_shape
+{
+public:
+	virtual ~abstract_polygon() = default;
+	virtual glm::vec2 point(length_type i) const = 0;
+	virtual const glm::vec2 *data() const = 0;
+protected:
+	template <std::ranges::range R>
+	static constexpr glm::vec2 poly_support(R &&pts, glm::vec2 dir)
+	{
+		glm::vec2 res{0, 0};
+		float max = -std::numeric_limits<float>::infinity();
+		for (auto pt : pts)
+			if (auto d = glm::dot(pt, dir); d > max)
+			{
+				max = d;
+				res = pt;
+			}
+		return res;
+	}
+};
+
+template <length_type _size>
+class regular_polygon : public abstract_polygon
+{
+public:
+	constexpr regular_polygon()
+	{
+		constexpr float angle = 2 * glm::pi<float>() / _size;
+		constexpr glm::mat3 rot_mat = const_rot2d(angle);
+		m_pts[0] = {0, 1};
+
+		// if even, rotate by half of the angle to make the bottom straight
+		if constexpr (!(_size & 1))
+			m_pts[0] = const_rot2d(angle / 2) * glm::vec3(m_pts[0], 1);
+
+		for (length_type i = 1; i < _size; ++i)
+			m_pts[i] = rot_mat * glm::vec3(m_pts[i - 1], 1);
+	}
+
+	constexpr length_type size() const override { return _size; }
+
+	constexpr glm::vec2 point(length_type i) const override { return m_pts[i]; }
+	constexpr const std::array<glm::vec2, _size> &points() const { return m_pts; }
+
+	const glm::vec2 *data() const override { return m_pts.data(); }
+
+private:
+	std::array<glm::vec2, _size> m_pts;
+protected:
+	constexpr glm::vec2 support(glm::vec2 dir) const override { return poly_support(m_pts, dir); }
+};
+
+template <>
+class regular_polygon<dynamic_size> : public abstract_polygon
+{
+public:
+	regular_polygon() = default;
+	regular_polygon(length_type size) { resize(size); }
+
+	length_type size() const override { return static_cast<length_type>(m_pts.size()); }
+
+	glm::vec2 point(length_type i) const override { return m_pts[i]; }
+	const std::vector<glm::vec2> &points() const { return m_pts; }
+
+	void resize(length_type new_size)
+	{
+		m_pts.resize(new_size);
+
+		float angle = 2 * glm::pi<float>() / new_size;
+		glm::mat3 rot_mat = rot2d(angle);
+
+		m_pts[0] = {0, 1};
+		
+		// if even, rotate by half of the angle to make the bottom straight
+		if (!(new_size & 1))
+			m_pts[0] = rot2d(angle / 2) * glm::vec3(m_pts[0], 1);
+		
+		for (length_type i = 1; i < new_size; ++i)
+			m_pts[i] = rot_mat * glm::vec3(m_pts[i - 1], 1);
+	}
+
+	const glm::vec2 *data() const override { return m_pts.data(); }
+private:
+	std::vector<glm::vec2> m_pts;
+protected:
+	constexpr glm::vec2 support(glm::vec2 dir) const override { return poly_support(m_pts, dir); }
+};
+
+template <length_type _size>
+constexpr regular_polygon<_size> make_regular() { return regular_polygon<_size>(); }
+
+inline regular_polygon<dynamic_size> make_regular(length_type size) { return regular_polygon<dynamic_size>(size); }
+
+template <length_type _size>
+class polygon : public abstract_polygon
+{
+public:
+	static_assert(_size != 0);
+
+	constexpr polygon() : m_center{0, 0} {}
+
+	template <std::ranges::range R>
+	constexpr polygon(R &&pts) { assign(std::forward<R>(pts)); }
+
+	template <typename T>
+	constexpr polygon(std::initializer_list<glm::vec<2, T>> pts) { assign(pts); }
+
+	constexpr length_type size() const override { return _size; }
+	constexpr glm::vec2 center() const override { return m_center; }
+
+	constexpr glm::vec2 point(length_type i) const override { return m_pts[i]; }
+	constexpr const std::array<glm::vec2, _size> &points() const { return m_pts; }
+
+	template <std::ranges::range R>
+	void assign(R &&pts)
+	{
+		m_center = {0, 0};
+		std::size_t i = 0;
+		for (auto pt : pts)
+		{
+			if (i >= _size)
+				break;
+			
+			m_center += pt;
+			m_pts[i++] = pt;
+		}
+
+		m_center /= _size;
+	}
+
+	const glm::vec2 *data() const override { return m_pts.data(); }
+private:
+	std::array<glm::vec2, _size> m_pts;
+	glm::vec2 m_center;
+protected:
+	constexpr glm::vec2 support(glm::vec2 dir) const override { return poly_support(m_pts, dir); }
+};
+
+template <>
+class polygon<dynamic_size> : public abstract_polygon
 {
 public:
 	polygon() = default;
 
 	template <typename T>
-	polygon(std::initializer_list<glm::vec<2, T>> pts) : polygon() { assign(pts.begin(), pts.end()); }
+	polygon(std::initializer_list<glm::vec<2, T>> pts) : polygon() { assign(pts); }
 
-	template <typename InputIt>
-	polygon(InputIt first, InputIt last) : polygon() { assign(first, last); }
+	template <std::ranges::range R>
+	polygon(R &&pts) : polygon() { assign(pts); }
 
-	void reserve(std::size_t capacity)
-	{
-		m_pts.reserve(capacity);
-	}
+	void reserve(std::size_t capacity) { m_pts.reserve(capacity); }
 
 	void push_back(glm::vec2 pt)
 	{
@@ -75,65 +248,68 @@ public:
 		m_center = (m_center * float(m_pts.size() - 1) + pt) / (float)m_pts.size();
 	}
 
-	template <typename InputIt>
-	void assign(InputIt first, InputIt last)
+	template <std::ranges::sized_range R>
+	void assign(R &&pts)
 	{
-		using vec_t = typename std::iterator_traits<InputIt>::value_type;
-		static_assert(std::is_convertible_v<vec_t, glm::vec<2, float>>, "InputIt value_type must be convertible to a vec of size 2");
-
 		m_pts.clear();
-		m_pts.reserve(std::distance(first, last));
+		m_pts.reserve(std::ranges::size(pts));
 		
-		glm::vec2 c{0, 0};
-		for (; first != last; ++first)
+		m_center = {0, 0};
+		for (auto pt : pts)
 		{
-			m_pts.push_back(*first);
-			c += *first;
+			m_pts.push_back(pt);
+			m_center += pt;
 		}
 
 		if (m_pts.size())
-			c /= m_pts.size();
-		
-		m_center = c;
+			m_center /= m_pts.size();
 	}
 
-	template <typename T>
-	void assign(std::initializer_list<glm::vec<2, T>> pts) { assign(pts.begin(), pts.end()); }
+	length_type size() const override { return static_cast<length_type>(m_pts.size()); }
+	glm::vec2 center() const override { return m_center; }
 
-	std::size_t size() const { return m_pts.size(); }
+	glm::vec2 point(length_type i) const override { return m_pts[i]; }
 
-	glm::vec2 center() const { return m_center; }
-	glm::vec2 point(std::size_t i) const { return m_pts[i]; }
+	// glm::vec2 normal(std::size_t first) const
+	// {
+	// 	std::size_t second = (first + 1) % m_pts.size();
+	// 	glm::vec2 perp{m_pts[first].y - m_pts[second].y, m_pts[second].x - m_pts[first].x};
+	// 	return glm::normalize(perp);
+	// }
 
-	glm::vec2 normal(std::size_t first) const
-	{
-		std::size_t second = (first + 1) % m_pts.size();
-		glm::vec2 perp{m_pts[first].y - m_pts[second].y, m_pts[second].x - m_pts[first].x};
-		return glm::normalize(perp);
-	}
+	const std::vector<glm::vec2> &points() const { return m_pts; }
 
-	const auto &points() const { return m_pts; }
-	auto pts_begin() const { return m_pts.begin(); }
-	auto pts_end() const { return m_pts.end(); }
+	const glm::vec2 *data() const override { return m_pts.data(); }
 
 private:
 	std::vector<glm::vec2> m_pts;
 	glm::vec2 m_center;
+protected:
+	glm::vec2 support(glm::vec2 dir) const override { return poly_support(m_pts, dir); }
 };
 
-class polygon_view
+// radius 1
+class circle : public abstract_shape
+{
+public:
+	length_type size() const override { return infinity; }
+protected:
+	glm::vec2 support(glm::vec2 dir) const override { return dir; }
+};
+
+class shape_view
 {
 public:
 	glm::vec2 offset;
 	glm::vec2 scale;
-	const polygon *poly;
+	const abstract_shape *shape;
 private:
 	float sin_angle;
 	float cos_angle;
 
 public:
-	polygon_view(const polygon &_poly) : offset{}, poly{&_poly}, scale{1.f, 1.f}, sin_angle{0}, cos_angle{1} {}
-	polygon_view(const polygon &_poly, glm::vec2 _offset, glm::vec2 _scale, float _angle) : offset{_offset}, poly{&_poly}, scale{_scale}, sin_angle{std::sin(_angle)}, cos_angle{std::cos(_angle)} {}
+	shape_view(const abstract_shape &_shape) : offset{}, shape{&_shape}, scale{1.f, 1.f}, sin_angle{0}, cos_angle{1} {}
+	shape_view(const abstract_shape &_shape, glm::vec2 _offset, glm::vec2 _scale, float _angle) : offset{_offset}, shape{&_shape}, scale{_scale}, sin_angle{std::sin(_angle)}, cos_angle{std::cos(_angle)} {}
 
 	void angle(float _angle)
 	{
@@ -148,26 +324,26 @@ public:
 
 	std::size_t size() const
 	{
-		return poly->size();
+		return shape->size();
 	}
 
-	glm::vec2 point(std::size_t i) const
-	{
-		return transform(poly->point(i));
-	}
+	// glm::vec2 point(std::size_t i) const
+	// {
+	// 	return transform(shape->point(i));
+	// }
 
-	glm::vec2 normal(std::size_t i) const
-	{
-		glm::vec2 first = transform(poly->points()[i]);
-		glm::vec2 second = transform(poly->points()[(i + 1) % poly->size()]);
-		glm::vec2 perp{first.y - second.y, second.x - first.x};
-		return glm::normalize(perp);
-	}
+	// glm::vec2 normal(std::size_t i) const
+	// {
+	// 	glm::vec2 first = transform(shape->points()[i]);
+	// 	glm::vec2 second = transform(shape->points()[(i + 1) % shape->size()]);
+	// 	glm::vec2 perp{first.y - second.y, second.x - first.x};
+	// 	return glm::normalize(perp);
+	// }
 
 	glm::vec2 center() const
 	{
 		// center doesn't change with rotation
-		return poly->center() * scale + offset;
+		return shape->center() * scale + offset;
 	}
 
 	glm::vec2 transform(glm::vec2 pt) const
@@ -177,7 +353,7 @@ public:
 		// scale = {{scale.x, 0, 0}, {0, scale.y, 0}, {0, 0, 1}};
 		// rotate = {{std::cos(angle), std::sin(angle), 0}, {-std::sin(angle), std::cos(angle), 0}, {0, 0, 1}};
 		// transform = translate * rotate * scale_mat;
-		// return transform * vec3((*poly)[i].pt, 1);
+		// return transform * vec3((*shape)[i].pt, 1);
 		glm::vec2 res{
 			cos_angle * scale.x * pt.x - sin_angle * scale.y * pt.y + offset.x,
 			sin_angle * scale.x * pt.x + cos_angle * scale.y * pt.y + offset.y
@@ -185,9 +361,18 @@ public:
 
 		return res;
 	}
+
+	glm::vec2 support(glm::vec2 dir) const
+	{
+		return transform(shape->support(dir));
+	}
 };
 
-#ifdef PHYSICS_DEBUG
+// returns collision with mtv to get a out of b or false if no collision
+collision collides(const shape_view &a, const shape_view &b);
+float moment_of_inertia(const shape_view &a);
+
+PHYSICS_END
 
 template <glm::length_t size, typename T>
 inline std::ostream &operator<<(std::ostream &stream, const glm::vec<size, T> &p)
@@ -200,107 +385,21 @@ inline std::ostream &operator<<(std::ostream &stream, const glm::vec<size, T> &p
 	return stream;
 }
 
-inline std::ostream &operator<<(std::ostream &stream, const polygon_view &p)
+inline std::ostream &operator<<(std::ostream &stream, const physics::shape_view &p)
 {
-	stream << "Polygon(";
-	if (p.size())
+	if (auto poly = dynamic_cast<const physics::abstract_polygon *>(p.shape))
 	{
-		stream << p.point(0);
-		for (std::size_t i = 1; i < p.size(); ++i)
-			stream << ", " << p.point(i);
+		stream << "Polygon(";
+		if (p.size())
+		{
+			stream << p.transform(poly->point(0));
+			for (physics::length_type i = 1; i < p.size(); ++i)
+				stream << ", " << p.transform(poly->point(i));
+		}
+		stream << ')';
 	}
-	stream << ')';
+
 	return stream;
 }
-
-#endif
-
-// returns collision with mtv to get a out of b or false if no collision
-collision collides(const polygon_view &a, const polygon_view &b);
-
-struct manifold
-{
-	std::optional<glm::vec2> pts[2];
-	std::size_t size() const
-	{
-		return (!!pts[0] + !!pts[1]);
-	}
-};
-
-manifold contact_manifold(const polygon_view &a, const polygon_view &b, const collision &coll);
-
-float moment_of_inertia(const polygon_view &a);
-
-template <typename Ait, typename Bit>
-inline std::vector<glm::vec2> minkowski_subtract(Ait a_begin, Ait a_end, Bit b_begin, Bit b_end)
-{
-	auto a_size = std::distance(a_begin, a_end);
-	auto b_size = std::distance(b_begin, b_end);
-
-	std::vector<glm::vec2> res(a_size * b_size);
-	
-	std::size_t i = 0;
-	for (auto ait = a_begin; ait != a_end; ++ait)
-	{
-		glm::vec2 a_pt = *ait;
-		for (auto bit = b_begin; bit != b_end; ++bit, ++i)
-			res[i] = a_pt - glm::vec2(*bit);
-	}
-
-	return res;
-}
-
-inline std::vector<glm::vec2> minkowski_subtract(const polygon_view &a, const polygon_view &b)
-{
-	std::vector<glm::vec2> res = minkowski_subtract(a.poly->pts_begin(), a.poly->pts_end(), b.poly->pts_begin(), b.poly->pts_end());
-	return res;
-}
-
-// returns a regular polygon with n points and radius 1 around the origin (clockwise)
-inline std::vector<glm::vec2> regular_polygon_pts(std::size_t n)
-{
-	if (!n)
-		return {};
-	
-	float angle = 2 * glm::pi<float>() / n;
-	glm::mat3 rot_mat = rot2d(angle);
-
-	std::vector<glm::vec2> res(n);
-	res[0] = {0, 1};
-	
-	// if even, rotate by half of the angle to make the bottom straight
-	if (!(n & 1))
-		res[0] = rot2d(angle / 2) * glm::vec3(res[0], 1);
-	
-	for (std::size_t i = 1; i < n; ++i)
-		res[i] = rot_mat * glm::vec3(res[i - 1], 1);
-
-	return res;
-}
-
-// returns a regular polygon with n points and radius 1 around the origin (clockwise)
-inline polygon regular_polygon(std::size_t n)
-{
-	if (!n)
-		return {};
-	
-	float angle = 2 * glm::pi<float>() / n;
-	glm::mat3 rot_mat = rot2d(angle);
-
-	polygon res;
-	res.reserve(n);
-
-	if (n & 1)
-		res.push_back({0, 1});
-	else // if even, rotate by half of the angle to make the bottom straight
-		res.push_back(rot2d(angle / 2) * glm::vec3(0, 1, 1));
-	
-	for (std::size_t i = 1; i < n; ++i)
-		res.push_back(rot_mat * glm::vec3(res.point(i - 1), 1));
-
-	return res;
-}
-
-PHYSICS_END
 
 #endif

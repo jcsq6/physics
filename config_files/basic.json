@@ -1,0 +1,17 @@
+{
+	"gravity": -25,
+	"width": 24,
+	"height": 13.5,
+	"objects": [
+		{
+			"name": "p",
+			"shape": "pentagon",
+			"type": "dynamic",
+			"pos": [12, 8],
+			"scale": [1, 1],
+			"angle": 45,
+			"color": [1, 0, 1, 1],
+			"mass": 50
+		}
+	]
+}

@@ -71,29 +71,29 @@ void get_dv(const particle &p1, glm::vec2 p1_center,
 	}
 }
 
-void resolve_velocities(particle &p1, glm::vec2 p1_center, particle &p2, glm::vec2 p2_center, manifold collision_pt, glm::vec2 normal, float e)
+void resolve_velocities(particle &p1, glm::vec2 p1_center, particle &p2, glm::vec2 p2_center, const collision &coll, float e)
 {
 	glm::vec2 dp1v(0, 0);
 	glm::vec2 dp2v(0, 0);
 	float dp1w = 0.f;
 	float dp2w = 0.f;
 	
-	if (collision_pt.size() == 1)
-	{
-		get_dv(p1, p1_center, p2, p2_center, *collision_pt.pts[0], normal, e, &dp1v, &dp1w, &dp2v, &dp2w);
-	}
-	else if (collision_pt.size() == 2)
-	{
+	// if (collision_pt.size() == 1)
+	// {
+	// 	get_dv(p1, p1_center, p2, p2_center, *collision_pt.pts[0], coll.normal, e, &dp1v, &dp1w, &dp2v, &dp2w);
+	// }
+	// else if (collision_pt.size() == 2)
+	// {
 		// get the change in angular velocity without the change in linear velocity
-		get_dv(p1, p1_center, p2, p2_center, *collision_pt.pts[0], normal, e, nullptr, &dp1w, nullptr, &dp2w);
-		get_dv(p1, p1_center, p2, p2_center, *collision_pt.pts[1], normal, e, nullptr, &dp1w, nullptr, &dp2w);
+		// get_dv(p1, p1_center, p2, p2_center, coll.a_contact, coll.normal, e, nullptr, &dp1w, nullptr, &dp2w);
+		// get_dv(p1, p1_center, p2, p2_center, coll.b_contact, coll.normal, e, nullptr, &dp1w, nullptr, &dp2w);
 
 		// get the change in linear velocity without the change in angular velocity
-		glm::vec2 average = (*collision_pt.pts[0] + *collision_pt.pts[1]) / 2.f;
-		get_dv(p1, p1_center, p2, p2_center, average, normal, e, &dp1v, nullptr, &dp2v, nullptr);
-	}
-	else
-		return;
+		// glm::vec2 average = (coll.a_contact + coll.b_contact) / 2.f;
+		// get_dv(p1, p1_center, p2, p2_center, average, coll.normal, e, &dp1v, nullptr, &dp2v, nullptr);
+	// }
+	// else
+	// 	return;
 
 	p1.v += dp1v;
 	p2.v += dp2v;
@@ -104,7 +104,7 @@ void resolve_velocities(particle &p1, glm::vec2 p1_center, particle &p2, glm::ve
 
 world::world(float world_width_meters, float world_height_meters, float gravity) : grav{ gravity }, world_width{ world_width_meters }, world_height{ world_height_meters }
 {
-	static polygon rect = {glm::vec2{0, 0}, {1, 0}, {1, 1}, {0, 1}};
+	static polygon<4> rect = {glm::vec2{0, 0}, {1, 0}, {1, 1}, {0, 1}};
 	
 	constexpr float bound_width = 10'000'000.f;
 	// bottom wall
@@ -123,18 +123,18 @@ bool object_compare(const object &a, const object &b)
 	return a.pt.pos.y > b.pt.pos.y;
 }
 
-object *world::add_object(const polygon &poly, glm::vec2 pos, glm::vec2 v_init, float angle, float w_init, float mass, glm::vec2 scale)
+object *world::add_object(const abstract_shape &shape, glm::vec2 pos, glm::vec2 v_init, float angle, float w_init, float mass, glm::vec2 scale)
 {
-	objects.push_back({{pos, v_init, {0, grav}, angle, w_init, 0, mass, mass * 10}, scale, &poly});
+	objects.push_back({{pos, v_init, {0, grav}, angle, w_init, 0, mass, mass * 10}, scale, &shape});
 	auto res = &objects.back();
 	objects.sort(object_compare<object>); // temporary solution
 
 	return res;
 }
 
-object *world::add_static_object(const polygon &poly, glm::vec2 pos, float angle, glm::vec2 scale)
+object *world::add_static_object(const abstract_shape &shape, glm::vec2 pos, float angle, glm::vec2 scale)
 {
-	objects.push_back({{pos, {0, 0}, {0, 0}, angle, 0, 0, particle::infinity, particle::infinity}, scale, &poly});
+	objects.push_back({{pos, {0, 0}, {0, 0}, angle, 0, 0, particle::infinity, particle::infinity}, scale, &shape});
 	auto res = &objects.back();
 	objects.sort(object_compare<object>); // temporary solution
 
@@ -151,12 +151,12 @@ void world::update_internal()
 	for (const auto &c : constraints)
 		c->update(time_step);
 	
-	for (const auto &[a, b, normal, contact_pts] : collisions)
+	for (const auto &[a, b, coll] : collisions)
 	{
-		glm::vec2 a_center = a->poly->center() * a->scale + a->pt.pos;
-		glm::vec2 b_center = b->poly->center() * b->scale + b->pt.pos;
+		glm::vec2 a_center = a->shape->center() * a->scale + a->pt.pos;
+		glm::vec2 b_center = b->shape->center() * b->scale + b->pt.pos;
 
-		resolve_velocities(a->pt, a_center, b->pt, b_center, contact_pts, normal, .85f);
+		resolve_velocities(a->pt, a_center, b->pt, b_center, coll, .85f);
 	}
 }
 
@@ -173,24 +173,27 @@ void world::resolve_bounds()
 	{
 		for (auto b = std::next(a); b != objects.end(); ++b)
 		{
-			polygon_view a_view(*a->poly, a->pt.pos, a->scale, a->pt.angle);
-			polygon_view b_view(*b->poly, b->pt.pos, b->scale, b->pt.angle);
+			shape_view a_view(*a->shape, a->pt.pos, a->scale, a->pt.angle);
+			shape_view b_view(*b->shape, b->pt.pos, b->scale, b->pt.angle);
 
 			auto res = collides(a_view, b_view);
-			if (!res || (std::abs(res.mtv.x) < epsilon && std::abs(res.mtv.y) < epsilon))
+			if (!res)
+				continue;
+			auto mtv = res.normal * res.dist;
+			if (std::abs(mtv.x) < epsilon && std::abs(mtv.y) < epsilon)
 				continue;
 
-			collisions.push_back({a, b, res.normal, contact_manifold(a_view, b_view, res)});
+			collisions.push_back({a, b, res});
 			
 			bool a_inf = a->pt.m == particle::infinity;
 			// bool b_inf = b->pt.m == particle::infinity;
 
 			if (a_inf)
-				b->pt.pos -= res.mtv;
+				b->pt.pos -= mtv;
 			// else if (b_inf)
-			// 	a->pt.pos += res.mtv;
+			// 	a->pt.pos += mtv;
 			else
-				a->pt.pos += res.mtv;
+				a->pt.pos += mtv;
 		}
 	}
 }

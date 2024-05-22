@@ -5,10 +5,8 @@ set(CMAKE_CXX_STANDARD 20)
 
 add_library(plib STATIC src/src/bound.cpp src/src/world.cpp src/src/constraint.cpp)
 
-add_executable(physics src/apps/main.cpp)
-add_executable(collisions src/apps/test_collisions.cpp)
-
-add_compile_definitions($<$<CONFIG:Debug>:PHYSICS_DEBUG>)
+add_executable(physics src/apps/main.cpp src/src/draw.cpp)
+add_executable(collisions src/apps/test_collisions.cpp src/src/draw.cpp)
 
 find_package(OpenGL REQUIRED)
 find_package(glfw3 REQUIRED)

@@ -7,7 +7,7 @@
 
 PHYSICS_BEG
 
-void resolve_velocities(particle &p1, glm::vec2 p1_center, particle &p2, glm::vec2 p2_center, manifold collision_pt, glm::vec2 normal, float e);
+void resolve_velocities(particle &p1, glm::vec2 p1_center, particle &p2, glm::vec2 p2_center, const collision &coll, float e);
 
 class world
 {
@@ -16,13 +16,11 @@ public:
 	world(float world_width_meters, float world_height_meters, float gravity = -10);
 
 	// make sure poly is not destroyed before world
-	object *add_object(const polygon &poly, glm::vec2 pos, glm::vec2 v_init, float angle, float w_init, float mass, glm::vec2 scale);
-	object *add_object(polygon &&, glm::vec2, glm::vec2, float, float, float, glm::vec2) = delete;
+	object *add_object(const abstract_shape &shape, glm::vec2 pos, glm::vec2 v_init, float angle, float w_init, float mass, glm::vec2 scale);
 
 	// make sure poly is not destroyed before world
 	// add object of infinite mass that stays in place
-	object *add_static_object(const polygon &poly, glm::vec2 pos, float angle, glm::vec2 scale);
-	object *add_static_object(polygon &&poly, glm::vec2 pos, float angle, glm::vec2 scale) = delete;
+	object *add_static_object(const abstract_shape &shape, glm::vec2 pos, float angle, glm::vec2 scale);
 
 	void add_constraint(std::unique_ptr<constraint> c) { constraints.push_back(std::move(c)); }
 
@@ -41,8 +39,7 @@ private:
 	struct collision_pair
 	{
 		std::list<object>::iterator a, b;
-		glm::vec2 normal;
-		manifold contact_pts;
+		collision coll;
 	};
 
 	std::list<object> objects;

@@ -4,18 +4,6 @@
 #include <chrono>
 #include <string>
 
-#include "json.hpp"
-
-// #include <iostream>
-
-void mouse_pos_interp(glm::dvec2 window_min, glm::dvec2 window_max, glm::dvec2 target_min, glm::dvec2 target_max, glm::dvec2 &mouse_pos)
-{
-	// y = (window_size)
-	mouse_pos.x = (target_max.x - target_min.x) / (window_max.x - window_min.x) * (mouse_pos.x - window_min.x) + target_min.x;
-	double y = window_max.y - mouse_pos.y;
-	mouse_pos.y = (target_max.y - target_min.y) / (window_max.y - window_min.y) * (y - window_min.y) + target_min.y;
-}
-
 physics::world parse_json(const char *filename, drawer &world_drawer);
 
 int main(int argc, char **argv)
@@ -32,28 +20,6 @@ int main(int argc, char **argv)
 	constexpr int window_width = 960;
 	constexpr int window_height = 540;
 
-	window win(window_width, window_height, "Physics");
-	glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	
-	shader program(
-		"#version 330 core\n" // vertex shader
-		"layout (location = 0) in vec2 pos;"
-		"uniform mat4 ortho;"
-		"uniform mat4 model;"
-		"void main(){"
-		"	gl_Position = ortho * model * vec4(pos, 0, 1);"
-		"}", 
-
-		"#version 330 core\n" // fragment shader
-		"uniform vec4 color;"
-		"out vec4 frag_color;"
-		"void main(){\n"
-		"	frag_color = color;"
-		"}");
-
-	vao my_vao;
-
 	drawer world_drawer;
 	physics::world handler;
 
@@ -67,8 +33,15 @@ int main(int argc, char **argv)
 		std::exit(1);
 	}
 
-	auto ortho = glm::ortho<float>(0, window_width, 0, window_height, -1.f, 1.f);
-
+	gl_instance gl(window_width, window_height, glm::vec2(0, 0), glm::vec2(handler.width(), handler.height()), "Physics");
+	
+	const window &win = gl.get_window();
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	
+	float time_multiplier = 1.0;
+	bool left_shift_released = true;
+	bool left_ctrl_released = true;
 	while (!glfwWindowShouldClose(win.handle))
 	{
 		std::chrono::time_point frame_begin = std::chrono::steady_clock::now();
@@ -79,25 +52,33 @@ int main(int argc, char **argv)
 			glfwSetWindowShouldClose(win.handle, 1);
 
 		if (glfwGetKey(win.handle, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS)
-			handler.update(1.f / target_fps / 2);
+		{
+			if (left_shift_released)
+			{
+				time_multiplier /= 2;
+				left_shift_released = false;
+			}
+		}
 		else
-			handler.update(1.f / target_fps);
-
-		// glm::dvec2 mouse;
-		// glfwGetCursorPos(win.handle, &mouse.x, &mouse.y);
-		// mouse_pos_interp({0, 0}, {window_width, window_height}, {0, 0}, {window_width, window_height}, mouse);
-
-		// mouse /= world::pixels_per_meter;
+			left_shift_released = true;
+		
+		if (glfwGetKey(win.handle, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS)
+		{
+			if (left_ctrl_released)
+			{
+				time_multiplier *= 2;
+				left_ctrl_released = false;
+			}
+		}
+		else
+			left_ctrl_released = true;
+		
+		handler.update(1.f / target_fps * time_multiplier);
 
 		glClearColor(1, 1, 1, 1);
 		glClear(GL_COLOR_BUFFER_BIT);
 
-		glBindVertexArray(my_vao.id);
-
-		glUseProgram(program.id);
-		glUniformMatrix4fv(glGetUniformLocation(program.id, "ortho"), 1, GL_FALSE, &ortho[0][0]);
-
-		world_drawer.draw(0, glGetUniformLocation(program.id, "color"), glGetUniformLocation(program.id, "model"));
+		world_drawer.draw(gl);
 
 		glfwSwapBuffers(win.handle);
 
@@ -113,6 +94,7 @@ int main(int argc, char **argv)
 
 #include <unordered_map>
 #include <fstream>
+#include "json.hpp"
 
 physics::world parse_json(const char *filename, drawer &world_drawer)
 {
@@ -214,7 +196,7 @@ physics::world parse_json(const char *filename, drawer &world_drawer)
 
 			float angle;
 			if (o.contains("angle"))
-				angle = o["angle"];
+				angle = glm::radians((float)o["angle"]);
 			else
 				angle = 0;
 
@@ -315,6 +297,47 @@ physics::world parse_json(const char *filename, drawer &world_drawer)
 						}
 
 						res.add_constraint(std::make_unique<physics::position_constraint>(*obj1->second, *obj2->second, dist));
+					}
+					else
+					{
+						std::cerr << "No objects in constraint #" << i << std::endl;
+						continue;
+					}
+				}
+				else if (c["type"] == "rope")
+				{
+					if (c.contains("objects"))
+					{
+						if (c["objects"].size() != 2)
+						{
+							std::cerr << "Rope constraint must have two objects" << std::endl;
+							continue;
+						}
+
+						auto obj1 = objects.find(c["objects"][0]);
+						auto obj2 = objects.find(c["objects"][1]);
+
+						if (obj1 == objects.end())
+						{
+							std::cerr << "Object " << c["objects"][0] << " not found" << std::endl;
+							continue;
+						}
+						if (obj2 == objects.end())
+						{
+							std::cerr << "Object " << c["objects"][1] << " not found" << std::endl;
+							continue;
+						}
+
+						float dist;
+						if (c.contains("distance"))
+							dist = c["distance"];
+						else
+						{
+							std::cerr << "No distance in constraint #" << i << std::endl;
+							continue;
+						}
+
+						res.add_constraint(std::make_unique<physics::rope_constraint>(*obj1->second, *obj2->second, dist));
 					}
 					else
 					{

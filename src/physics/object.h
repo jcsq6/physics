@@ -33,7 +33,7 @@ struct object
 {
 	particle pt;
 	glm::vec2 scale;
-	const polygon *poly;
+	const abstract_shape *shape;
 };
 
 PHYSICS_END

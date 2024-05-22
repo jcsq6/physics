@@ -2,258 +2,141 @@
 
 PHYSICS_BEG
 
-bool project_onto(const polygon_view &a, const polygon_view &b, float &min_intersection, collision &res)
+inline bool contains_origin(std::vector<glm::vec2> &simplex, glm::vec2 &dir)
 {
-	for (std::size_t a_edge = 0; a_edge < a.poly->size(); ++a_edge)
+	switch (simplex.size())
 	{
-		glm::vec2 normal = a.normal(a_edge);
+	case 1:
+		return simplex[0] == glm::vec2{0, 0};
+	case 2:
+	{
+		const glm::vec2 &a = simplex[0];
+		const glm::vec2 &b = simplex[1];
 
-		// get projection of a onto normal
-		float amin = std::numeric_limits<float>::infinity();
-		float amax = -std::numeric_limits<float>::infinity();
-		for (std::size_t i = 0; i < a.size(); ++i)
-		{
-			float cur = glm::dot(normal, a.point(i));
-			if (cur < amin)
-				amin = cur;
-			if (cur > amax)
-				amax = cur;
-		}
-
-		// get projection of b onto normal
-		float bmin = std::numeric_limits<float>::infinity();
-		float bmax = -std::numeric_limits<float>::infinity();
-		for (std::size_t i = 0; i < b.size(); ++i)
-		{
-			float cur = glm::dot(normal, b.point(i));
-			if (cur < bmin)
-				bmin = cur;
-			if (cur > bmax)
-				bmax = cur;
-		}
-
-		if (amax < bmin || bmax < amin)
-			return false;
-
-		float cur_intersection = std::min(amax - bmin, bmax - amin);
+		glm::vec2 ab = b - a;
+		glm::vec2 norm = { ab.y, -ab.x };
+		if (glm::dot(ab, norm) < 0)
+			norm *= -1;
 		
-		// if this intersection is less than the minimum
-		if (cur_intersection < min_intersection)
-		{
-			min_intersection = cur_intersection;
-			res.mtv = normal * min_intersection;
-			res.normal = normal;
-		}
+		if (glm::dot(norm, -a) > 0)
+			dir = norm;
+		else
+			dir = -norm;
+
+		return false;
 	}
-
-	return true;
-}
-
-// returns collision with mtv to get a out of b or false if no collision
-collision collides(const polygon_view &a, const polygon_view &b)
-{
-	collision res;
-	res.collides = true;
-	float intersection = std::numeric_limits<float>::infinity();
-	if (project_onto(a, b, intersection, res))
+	case 3:
 	{
-		if (project_onto(b, a, intersection, res))
+		const glm::vec2 &a = simplex[2];
+		const glm::vec2 &b = simplex[1];
+		const glm::vec2 &c = simplex[0];
+
+		glm::vec2 ab = b - a;
+		glm::vec2 ac = c - a;
+		
+		glm::vec2 ab_norm = { ab.y, -ab.x};
+		if (glm::dot(ac, ab_norm) > 0)
+			ab_norm *= -1;
+		
+		glm::vec2 ac_norm = { ac.y, -ac.x };
+		if (glm::dot(ab, ac_norm) > 0)
+			ac_norm *= -1;
+		
+		if (glm::dot(ab_norm, -a) > 0)
 		{
-			glm::vec2 center_diff = b.center() - a.center();
-			if (glm::dot(res.normal, center_diff) > 0)
-			{
-				res.mtv *= -1;
-				res.normal *= -1;
-			}
-			return res;
+			simplex.erase(simplex.begin());
+			dir = ab_norm;
 		}
+		else if (glm::dot(ac_norm, -a) > 0)
+		{
+			simplex.erase(simplex.begin() + 1);
+			dir = ac_norm;
+		}
+		else
+			return true;
+		
+		return false;
 	}
-	return {};
+	default:
+		return false;
+	}
 }
 
 struct edge
 {
-	glm::vec2 max;
-	glm::vec2 a, b;
+	glm::vec2 norm;
+	float dist;
+	unsigned int i;
 };
 
-struct point
+edge closest_edge(std::vector<glm::vec2> &simplex)
 {
-	glm::vec2 pt;
-	glm::vec2 normal;
-};
+	edge closest;
+	closest.dist = std::numeric_limits<float>::infinity();
 
-// returns edge that is most perpindicular to the normal
-edge find_best(const polygon_view &p, glm::vec2 normal)
-{
-	constexpr float epsilon = 1E-6f;
-
-	float max = -std::numeric_limits<float>::infinity();
-	std::size_t max_i;
-	point max_pt;
-
-	float orientation = 0;
-	std::size_t prev = p.size() - 1;
-	point prev_pt{p.point(prev), p.normal(prev)};
-	// calculate farthest point on p along normal
-	for (std::size_t i = 0; i < p.size(); prev = i++)
+	for (unsigned int i = 0; i < simplex.size(); ++i)
 	{
-		point cur_pt{p.point(i), p.normal(i)};
-		auto proj = glm::dot(normal, cur_pt.pt);
-		if (proj > max)
+		const glm::vec2 &a = simplex[i];
+		const glm::vec2 &b = simplex[(i + 1) % simplex.size()];
+		glm::vec2 ab = b - a;
+		glm::vec2 norm = { ab.y, -ab.x };
+		if (glm::dot(a, norm) < 0)
+			norm *= -1;
+		norm = glm::normalize(norm);
+
+		if (float dist = glm::dot(a, norm); dist < closest.dist)
 		{
-			max_pt = cur_pt;
-			max = proj;
-			max_i = i;
+			closest.norm = norm;
+			closest.dist = dist;
+			closest.i = i;
 		}
-
-		orientation += (cur_pt.pt.x - prev_pt.pt.x) * (cur_pt.pt.y + prev_pt.pt.y);
-
-		prev_pt = cur_pt;
 	}
 
-	std::size_t next, previous;
-
-	if (max_i == p.size() - 1)
-	{
-		next = 0;
-		previous = max_i - 1;
-	}
-	else if (max_i == 0)
-	{
-		next = 1;
-		previous = p.size() - 1;
-	}
-	else
-	{
-		next = max_i + 1;
-		previous = max_i - 1;
-	}
-
-	glm::vec2 next_pt = p.point(next);
-	prev_pt = {p.point(previous), p.normal(previous)};
-
-	float next_proj = glm::dot(max_pt.normal, normal);
-	float prev_proj = glm::dot(prev_pt.normal, normal);
-
-	if (std::abs(next_proj) > std::abs(prev_proj))
-	{
-		// if clockwise
-		if (orientation >= 0)
-			return {max_pt.pt, max_pt.pt, next_pt};
-		else // if counter-clockwise
-			return {max_pt.pt, next_pt, max_pt.pt};
-	}
-
-	// if clockwise
-	if (orientation >= 0)
-		return {max_pt.pt, prev_pt.pt, max_pt.pt};
-	else // if counter-clockwise
-		return {max_pt.pt, max_pt.pt, prev_pt.pt};
+	return closest;
 }
 
-manifold clip(glm::vec2 a, glm::vec2 b, glm::vec2 edge, float projection)
+// expanding polytope algorithm
+collision epa(std::vector<glm::vec2> &simplex, const shape_view &a, const shape_view &b)
 {
-	manifold res;
-	float a_proj = glm::dot(a, edge);
-	float b_proj = glm::dot(b, edge);
-
-	unsigned int size = 0;
-	if (a_proj >= projection)
-		res.pts[size++] = a;
-	if (b_proj >= projection)
-		res.pts[size++] = b;
-	
-	if (size < 2)
+	while (true)
 	{
-		glm::vec2 new_pt = b - a;
-		new_pt *= (a_proj - projection) / (a_proj - b_proj);
-		new_pt += a;
+		edge edge = closest_edge(simplex);
+		auto a_support = a.support(edge.norm);
+		auto b_support = b.support(-edge.norm);
+		glm::vec2 new_pt = a_support - b_support;
+		float dist = glm::dot(new_pt, edge.norm);
 
-		res.pts[size] = new_pt;
-	}
-
-	return res;
-}
-
-// for use with geogebra
-#define DEBUG_MANIFOLD 0
-#if DEBUG_MANIFOLD == 1 && defined(DEBUG)
-#include <iostream>
-#include <iomanip>
-#endif
-
-manifold contact_manifold(const polygon_view &a, const polygon_view &b, const collision &coll)
-{
-	#if DEBUG_MANIFOLD == 1 && defined(DEBUG)
-	std::cout << std::fixed << std::setprecision(4);
-	std::cout << "A = " << a << '\n';
-	std::cout << "B = " << b << '\n';
-	#endif
-
-	edge reference = find_best(b, coll.normal);
-	edge incident = find_best(a, -coll.normal);
-
-	#if DEBUG_MANIFOLD == 1 && defined(DEBUG)
-	std::cout << "\nRefMax = " << reference.max
-			  << "\nRefA = " << reference.a
-			  << "\nRefB = " << reference.b
-			  << "\nIncMax = " << incident.max
-			  << "\nIncA = " << incident.a
-			  << "\nIncB = " << incident.b << std::endl;
-	#endif
-
-	auto edge = glm::normalize(reference.b - reference.a);
-	// clip a and b from reference.a
-	auto clipped_pts = clip(incident.a, incident.b, edge, glm::dot(edge, reference.a));
-
-	if (clipped_pts.size() < 2)
-		return {};
-	
-	#if DEBUG_MANIFOLD == 1
-	std::cout << "\nFirstClippedA = " << *clipped_pts.pts[0]
-			  << "\nFirstClippedB = " << *clipped_pts.pts[1] << std::endl;
-	#endif
-
-	// clip new a and b along reference.b
-	clipped_pts = clip(*clipped_pts.pts[0], *clipped_pts.pts[1], -edge, glm::dot(-edge, reference.b));
-
-	if (clipped_pts.size() < 2)
-		return {};
-
-	#if DEBUG_MANIFOLD == 1 && defined(DEBUG)
-	std::cout << "\nSecondClippedA = " << *clipped_pts.pts[0]
-			  << "\nSecondClippedB = " << *clipped_pts.pts[1] << std::endl;
-	#endif
-
-	glm::vec2 ref_norm{edge.y, -edge.x};
-
-	// clip new a and b along edge normal
-	float max_proj = glm::dot(ref_norm, reference.max);
-	if (glm::dot(ref_norm, *clipped_pts.pts[0]) < max_proj)
-	{
-		if (glm::dot(ref_norm, *clipped_pts.pts[1]) < max_proj)
-			clipped_pts.pts[0].reset();
+		if (dist - edge.dist < 1e-6f)
+			return { edge.norm, dist, a_support, b_support };
 		else
-			*clipped_pts.pts[0] = *clipped_pts.pts[1];
-		clipped_pts.pts[1].reset();
+			simplex.insert(simplex.begin() + edge.i + 1, new_pt);
 	}
-	else if (glm::dot(ref_norm, *clipped_pts.pts[1]) < max_proj)
-		clipped_pts.pts[1].reset();
+}
 
-	#if DEBUG_MANIFOLD == 1 && defined(DEBUG)
-	for (int i = 0; i < 2; ++i)
+// returns collision with mtv to get a out of b or false if no collision
+collision collides(const shape_view &a, const shape_view &b)
+{
+	glm::vec2 dir{1, 0};
+	thread_local std::vector<glm::vec2> simplex(3);
+	simplex.clear();
+
+	simplex.push_back(a.support(dir) - b.support(-dir));
+	dir = -simplex[0];
+
+	while (true)
 	{
-		if (clipped_pts.pts[i])
-			std::cout << "FinalClipped[" << i << "] = " << *clipped_pts.pts[i] << std::endl;
+		glm::vec2 new_pt = a.support(dir) - b.support(-dir);
+		if (glm::dot(new_pt, dir) <= 0)
+			return {}; // doesn't collide
+
+		simplex.push_back(new_pt);
+		if (contains_origin(simplex, dir))
+			return epa(simplex, a, b); // collides
 	}
-	#endif
-	
-	return clipped_pts;
 }
 
 // TODO
-float moment_of_inertia(const polygon_view &a)
+float moment_of_inertia(const shape_view &a)
 {
 	for (std::size_t i = 1; i < a.size(); ++i)
 	{
